@@ -174,11 +174,6 @@ await cp(
   path.join(publicMedia, "gallery", "firefly-2026"),
   { recursive: true, force: true },
 )
-await mkdir(path.join(publicMedia, "profile"), { recursive: true })
-await copyFile(
-  path.join(sourceRoot, "src", "assets", "images", "avatar.avif"),
-  path.join(publicMedia, "profile", "avatar.avif"),
-)
 await mkdir(path.join(publicMedia, "sponsor"), { recursive: true })
 for (const filename of ["alipay.png", "wechat.png"]) {
   await copyFile(

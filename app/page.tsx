@@ -6,7 +6,7 @@ import { siteConfig } from "@/lib/site"
 
 export default function Home() {
   return (
-    <div className="site-shell home-shell">
+    <div className="site-shell home-shell" data-home-layout="avatar-particles-v2">
       <a className="skip-link" href="#main">跳到主要内容</a>
       <SiteHeader showBrand={false} />
       <main id="main" className="home-main">

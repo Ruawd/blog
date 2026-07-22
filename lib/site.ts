@@ -6,7 +6,7 @@ export const siteConfig = {
   tagline: "把踩过的坑、用过的服务和想留下的内容认真记录下来。",
   email: "admin@ruawd.de",
   url: "https://blog.ruawd.de",
-  avatar: "/blog-media/profile/avatar.avif",
+  avatar: "/blog-media/profile/avatar.webp",
   github: "https://github.com/Ruawd",
   bilibili: "https://space.bilibili.com/180370037",
 }
