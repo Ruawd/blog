@@ -70,11 +70,20 @@ function request(pathname, options = {}) {
 }
 
 test("renders the site identity and real blog index", async () => {
-  const [homeResponse, blogResponse] = await Promise.all([request("/"), request("/blog")])
+  const [homeResponse, blogResponse, categoriesResponse] = await Promise.all([
+    request("/"),
+    request("/blog"),
+    request("/blog/categories"),
+  ])
   assert.equal(homeResponse.status, 200)
   assert.equal(blogResponse.status, 200)
+  assert.equal(categoriesResponse.status, 200)
 
-  const [home, blog] = await Promise.all([homeResponse.text(), blogResponse.text()])
+  const [home, blog, categories] = await Promise.all([
+    homeResponse.text(),
+    blogResponse.text(),
+    categoriesResponse.text(),
+  ])
   assert.match(home, /Ruawd/)
   assert.match(home, /\/blog-media\/profile\/avatar\.webp/)
   assert.match(home, /rel="icon" href="\/blog-media\/profile\/avatar\.webp"/)
@@ -92,7 +101,13 @@ test("renders the site identity and real blog index", async () => {
   assert.match(blog, /class="post-cover"/)
   assert.match(blog, /width="800" height="600"/)
   assert.match(blog, /技术实践、VPS 测评与数字生活记录。/)
+  assert.match(blog, /aria-label="按分类筛选文章"/)
+  assert.match(blog, /href="\/blog\/categories"/)
+  assert.doesNotMatch(blog, /aria-label="按标签筛选文章"/)
   assert.doesNotMatch(blog, /迁移自原来的 Firefly 博客/)
+  assert.match(categories, /文章分类/)
+  assert.match(categories, /全部分类/)
+  assert.match(categories, /href="\/blog\?category=VPS%E6%B5%8B%E8%AF%84#latest-posts-title"/)
 })
 
 test("renders an article detail route with reading tools", async () => {

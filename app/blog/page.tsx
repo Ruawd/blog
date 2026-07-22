@@ -13,8 +13,13 @@ export const metadata: Metadata = {
   description: "Ruawd 的技术教程、VPS 测评与自建服务记录。",
 }
 
-export default async function BlogPage() {
+export default async function BlogPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ category?: string }>
+}) {
   const [blogPosts, page] = await Promise.all([listPublishedBlogPosts(), getPageContent("blog")])
+  const { category } = await searchParams
   const publicPosts: BlogExplorerPost[] = blogPosts.map((post) => ({
     slug: post.slug,
     title: post.title,
@@ -43,7 +48,7 @@ export default async function BlogPage() {
           <p>共 {blogPosts.length} 篇文章，按发布时间从新到旧排列。</p>
         </div>
 
-        <BlogExplorer posts={publicPosts} />
+        <BlogExplorer posts={publicPosts} initialCategory={category} key={category || "all"} />
       </section>
     </SiteFrame>
   )

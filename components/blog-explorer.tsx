@@ -25,7 +25,7 @@ type SearchablePost = {
   haystacks: string[]
 }
 
-const ALL_TAGS = "__all__"
+const ALL_CATEGORIES = "__all__"
 
 const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
   year: "numeric",
@@ -63,17 +63,27 @@ function createSearchablePost(post: BlogExplorerPost): SearchablePost {
   }
 }
 
-export function BlogExplorer({ posts }: { posts: BlogExplorerPost[] }) {
+export function BlogExplorer({ posts, initialCategory }: { posts: BlogExplorerPost[]; initialCategory?: string }) {
   const [query, setQuery] = useState("")
-  const [activeTag, setActiveTag] = useState(ALL_TAGS)
+  const [activeCategory, setActiveCategory] = useState(() => (
+    initialCategory && posts.some((post) => post.category === initialCategory)
+      ? initialCategory
+      : ALL_CATEGORIES
+  ))
   const deferredQuery = useDeferredValue(query)
 
   const searchablePosts = useMemo(() => posts.map(createSearchablePost), [posts])
-  const tags = useMemo(() => {
+  const categories = useMemo(() => {
     const counts = new Map<string, number>()
-    posts.forEach((post) => post.tags.forEach((tag) => counts.set(tag, (counts.get(tag) || 0) + 1)))
+    posts.forEach((post) => counts.set(post.category, (counts.get(post.category) || 0) + 1))
     return [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "zh-CN"))
   }, [posts])
+  const visibleCategories = useMemo(() => {
+    if (activeCategory === ALL_CATEGORIES) return categories.slice(0, 4)
+    const activeEntry = categories.find(([category]) => category === activeCategory)
+    if (!activeEntry) return categories.slice(0, 4)
+    return [activeEntry, ...categories.filter(([category]) => category !== activeCategory).slice(0, 3)]
+  }, [activeCategory, categories])
 
   const queryTokens = deferredQuery
     .trim()
@@ -83,17 +93,25 @@ export function BlogExplorer({ posts }: { posts: BlogExplorerPost[] }) {
 
   const filteredPosts = searchablePosts
     .filter(({ post, haystacks }) => {
-      const matchesTag = activeTag === ALL_TAGS || post.tags.includes(activeTag)
+      const matchesCategory = activeCategory === ALL_CATEGORIES || post.category === activeCategory
       const matchesQuery = queryTokens.every((token) => haystacks.some((haystack) => haystack.includes(token)))
-      return matchesTag && matchesQuery
+      return matchesCategory && matchesQuery
     })
     .map(({ post }) => post)
 
-  const hasFilters = query.trim().length > 0 || activeTag !== ALL_TAGS
+  const hasFilters = query.trim().length > 0 || activeCategory !== ALL_CATEGORIES
+
+  function selectCategory(category: string) {
+    setActiveCategory(category)
+    const url = new URL(window.location.href)
+    if (category === ALL_CATEGORIES) url.searchParams.delete("category")
+    else url.searchParams.set("category", category)
+    window.history.replaceState(null, "", `${url.pathname}${url.search}${url.hash}`)
+  }
 
   function resetFilters() {
     setQuery("")
-    setActiveTag(ALL_TAGS)
+    selectCategory(ALL_CATEGORIES)
   }
 
   return (
@@ -107,7 +125,7 @@ export function BlogExplorer({ posts }: { posts: BlogExplorerPost[] }) {
             type="search"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索标题、标签、中文或拼音…"
+            placeholder="搜索标题、分类、标签、中文或拼音…"
             autoComplete="off"
           />
           {query ? (
@@ -123,27 +141,35 @@ export function BlogExplorer({ posts }: { posts: BlogExplorerPost[] }) {
         </div>
       </div>
 
-      <div className="blog-tag-filter" role="group" aria-label="按标签筛选文章">
-        <button
-          type="button"
-          data-active={activeTag === ALL_TAGS}
-          aria-pressed={activeTag === ALL_TAGS}
-          onClick={() => setActiveTag(ALL_TAGS)}
-        >
-          全部 <span>{posts.length}</span>
-        </button>
-        {tags.map(([tag, count]) => (
+      <nav className="blog-category-filter" aria-label="文章分类筛选">
+        <div className="blog-category-options" role="group" aria-label="按分类筛选文章">
           <button
             type="button"
-            data-active={activeTag === tag}
-            aria-pressed={activeTag === tag}
-            onClick={() => setActiveTag(tag)}
-            key={tag}
+            data-active={activeCategory === ALL_CATEGORIES}
+            aria-pressed={activeCategory === ALL_CATEGORIES}
+            onClick={() => selectCategory(ALL_CATEGORIES)}
           >
-            #{tag} <span>{count}</span>
+            全部 <span>{posts.length}</span>
           </button>
-        ))}
-      </div>
+          {visibleCategories.map(([category, count], index) => (
+            <button
+              className="blog-category-option"
+              type="button"
+              data-slot={index + 1}
+              data-active={activeCategory === category}
+              aria-pressed={activeCategory === category}
+              onClick={() => selectCategory(category)}
+              key={category}
+            >
+              {category} <span>{count}</span>
+            </button>
+          ))}
+        </div>
+        <Link className="blog-category-more" href="/blog/categories">
+          <span>更多</span>
+          <ArrowRight aria-hidden="true" />
+        </Link>
+      </nav>
 
       {filteredPosts.length ? (
         <AnimatedList className="post-list">
@@ -202,7 +228,7 @@ export function BlogExplorer({ posts }: { posts: BlogExplorerPost[] }) {
         <div className="blog-empty-state" role="status">
           <SearchX aria-hidden="true" />
           <h3>没有匹配的文章</h3>
-          <p>换一个关键词，或清除当前标签筛选。</p>
+          <p>换一个关键词，或清除当前分类筛选。</p>
           {hasFilters ? <button type="button" onClick={resetFilters}>清除筛选</button> : null}
         </div>
       )}
