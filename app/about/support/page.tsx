@@ -61,7 +61,6 @@ export default async function SupportPage() {
                 alt={`${method.name}赞助二维码`}
                 width={640}
                 height={640}
-                unoptimized
               />
               <div className="support-card-copy">
                 <p className="section-kicker">{method.name}</p>

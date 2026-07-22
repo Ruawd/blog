@@ -1,16 +1,17 @@
 "use client"
 
 import { useState } from "react"
-import { Clapperboard, FilePenLine, Images, LayoutTemplate, Link2, MessagesSquare } from "lucide-react"
+import { Clapperboard, DatabaseBackup, FilePenLine, Images, LayoutTemplate, Link2, MessagesSquare } from "lucide-react"
 
 import { AdminAlbumEditor } from "@/components/admin-album-editor"
 import { AdminBangumiSettings } from "@/components/admin-bangumi-settings"
+import { AdminBackupManager } from "@/components/admin-backup-manager"
 import { AdminCommentManager } from "@/components/admin-comment-manager"
 import { AdminEditor } from "@/components/admin-editor"
 import { AdminFriendEditor } from "@/components/admin-friend-editor"
 import { AdminPageEditor } from "@/components/admin-page-editor"
 
-type Section = "articles" | "pages" | "album" | "friends" | "bangumi" | "comments"
+type Section = "articles" | "pages" | "album" | "friends" | "bangumi" | "comments" | "backups"
 
 const sections = [
   { key: "articles" as const, label: "文章", description: "写作与发布", icon: FilePenLine },
@@ -19,6 +20,7 @@ const sections = [
   { key: "friends" as const, label: "友链", description: "编辑与审核", icon: Link2 },
   { key: "bangumi" as const, label: "番组 API", description: "同步 Bangumi", icon: Clapperboard },
   { key: "comments" as const, label: "留言与评论", description: "审核互动内容", icon: MessagesSquare },
+  { key: "backups" as const, label: "备份", description: "数据安全", icon: DatabaseBackup },
 ]
 
 export function AdminConsole({ displayName }: { displayName: string }) {
@@ -49,6 +51,7 @@ export function AdminConsole({ displayName }: { displayName: string }) {
         {section === "friends" ? <AdminFriendEditor /> : null}
         {section === "bangumi" ? <AdminBangumiSettings /> : null}
         {section === "comments" ? <AdminCommentManager /> : null}
+        {section === "backups" ? <AdminBackupManager /> : null}
       </div>
     </>
   )

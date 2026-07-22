@@ -1,5 +1,6 @@
 import { isSameOrigin, requireAdminApi } from "@/lib/admin-session"
 import { savePageContent } from "@/lib/page-content"
+import { expirePublicCache, publicCacheTags } from "@/lib/public-cache"
 
 export const dynamic = "force-dynamic"
 
@@ -14,7 +15,9 @@ export async function PUT(request: Request, { params }: { params: Promise<{ key:
     const { key } = await params
     const body = await request.json() as Record<string, unknown>
     if (body.key !== key) return Response.json({ error: "页面标识不能修改" }, { status: 409 })
-    return Response.json({ page: await savePageContent(body, auth.user.username) })
+    const page = await savePageContent(body, auth.user.username)
+    expirePublicCache([publicCacheTags.pages], [page.path])
+    return Response.json({ page })
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "页面保存失败" }, { status: 400 })
   }

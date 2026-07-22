@@ -3,6 +3,7 @@ import {
   createAdminFriendLink,
   listAdminFriendLinks,
 } from "@/lib/friend-repository"
+import { expirePublicCache, publicCacheTags } from "@/lib/public-cache"
 
 export const dynamic = "force-dynamic"
 
@@ -24,9 +25,9 @@ export async function POST(request: Request) {
     return Response.json({ error: "友链内容过大" }, { status: 413 })
   }
   try {
-    return Response.json({
-      friend: createAdminFriendLink(await request.json(), auth.user.username),
-    }, { status: 201 })
+    const friend = createAdminFriendLink(await request.json(), auth.user.username)
+    expirePublicCache([publicCacheTags.friends], ["/friends"])
+    return Response.json({ friend }, { status: 201 })
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "友链创建失败" }, { status: 400 })
   }

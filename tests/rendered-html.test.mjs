@@ -123,6 +123,33 @@ test("renders the site identity and real blog index", async () => {
   assert.match(categories, /href="\/blog\?category=VPS%E6%B5%8B%E8%AF%84#latest-posts-title"/)
 })
 
+test("serves search, feeds, manifests, and crawler metadata", async () => {
+  const [robotsResponse, sitemapResponse, feedResponse, manifestResponse, ogResponse, searchResponse, pinyinSearchResponse] = await Promise.all([
+    request("/robots.txt"),
+    request("/sitemap.xml"),
+    request("/feed.xml"),
+    request("/manifest.webmanifest"),
+    request("/opengraph-image"),
+    request("/api/search?q=lightsail"),
+    request("/api/search?q=xiangce"),
+  ])
+  for (const response of [robotsResponse, sitemapResponse, feedResponse, manifestResponse, ogResponse, searchResponse, pinyinSearchResponse]) {
+    assert.equal(response.status, 200)
+  }
+
+  assert.match(await robotsResponse.text(), /Sitemap: https:\/\/blog\.ruawd\.de\/sitemap\.xml/)
+  assert.match(await sitemapResponse.text(), /https:\/\/blog\.ruawd\.de\/blog\/memos-casdoor-oauth-login/)
+  assert.match(await feedResponse.text(), /<rss version="2\.0"/)
+  assert.equal((await manifestResponse.json()).short_name, "Ruawd")
+  assert.match(ogResponse.headers.get("content-type") ?? "", /^image\//)
+
+  const search = await searchResponse.json()
+  assert.equal(search.query, "lightsail")
+  assert.ok(search.results.some((result) => result.href === "/blog/aws-lightsail-jp-5-review"))
+  const pinyinSearch = await pinyinSearchResponse.json()
+  assert.ok(pinyinSearch.results.some((result) => result.href === "/mine/album"))
+})
+
 test("renders an article detail route with reading tools", async () => {
   const response = await request("/blog/memos-casdoor-oauth-login")
   assert.equal(response.status, 200)
@@ -141,12 +168,13 @@ test("renders an article detail route with reading tools", async () => {
 })
 
 test("protects the management backend and supports draft-to-publish workflow", async () => {
-  const [adminResponse, apiResponse, bangumiApiResponse, albumApiResponse, friendsApiResponse] = await Promise.all([
+  const [adminResponse, apiResponse, bangumiApiResponse, albumApiResponse, friendsApiResponse, backupsApiResponse] = await Promise.all([
     request("/admin"),
     request("/api/admin/posts"),
     request("/api/admin/bangumi"),
     request("/api/admin/album"),
     request("/api/admin/friends"),
+    request("/api/admin/backups"),
   ])
   assert.equal(adminResponse.status, 307)
   assert.match(adminResponse.headers.get("location") ?? "", /\/admin\/login/)
@@ -154,6 +182,7 @@ test("protects the management backend and supports draft-to-publish workflow", a
   assert.equal(bangumiApiResponse.status, 401)
   assert.equal(albumApiResponse.status, 401)
   assert.equal(friendsApiResponse.status, 401)
+  assert.equal(backupsApiResponse.status, 401)
 
   const loginResponse = await request("/api/auth/casdoor/login?return_to=/admin")
   assert.equal(loginResponse.status, 307)
@@ -272,7 +301,18 @@ test("protects the management backend and supports draft-to-publish workflow", a
     body: JSON.stringify(article),
   })
   assert.equal(draftResponse.status, 201)
+  const createdDraft = (await draftResponse.json()).post
   assert.equal((await request("/blog/integration-test-post")).status, 404)
+
+  const autosaveResponse = await request("/api/admin/posts/integration-test-post/autosave", {
+    method: "PUT",
+    headers: authHeaders,
+    body: JSON.stringify({ article: { ...createdDraft, title: "服务器自动保存标题", content: "服务器自动保存正文" } }),
+  })
+  assert.equal(autosaveResponse.status, 200)
+  assert.equal((await autosaveResponse.json()).autosave.article.title, "服务器自动保存标题")
+  const autosaveReadResponse = await request("/api/admin/posts/integration-test-post", { headers: { cookie } })
+  assert.equal((await autosaveReadResponse.json()).autosave.article.content, "服务器自动保存正文")
 
   const publishResponse = await request("/api/admin/posts/integration-test-post", {
     method: "PUT",
@@ -280,12 +320,55 @@ test("protects the management backend and supports draft-to-publish workflow", a
     body: JSON.stringify({ ...article, status: "published" }),
   })
   assert.equal(publishResponse.status, 200)
+  const afterPublishEditor = await request("/api/admin/posts/integration-test-post", { headers: { cookie } })
+  assert.equal((await afterPublishEditor.json()).autosave, null)
 
   const publishedResponse = await request("/blog/integration-test-post")
   assert.equal(publishedResponse.status, 200)
   const publishedHtml = await publishedResponse.text()
   assert.match(publishedHtml, /后台发布流程测试/)
   assert.match(publishedHtml, /这是通过管理接口写入的测试正文/)
+
+  const updatePublishedResponse = await request("/api/admin/posts/integration-test-post", {
+    method: "PUT",
+    headers: authHeaders,
+    body: JSON.stringify({ ...article, title: "临时修改后的标题", status: "published" }),
+  })
+  assert.equal(updatePublishedResponse.status, 200)
+  const revisionsResponse = await request("/api/admin/posts/integration-test-post/revisions", { headers: { cookie } })
+  assert.equal(revisionsResponse.status, 200)
+  const revisions = (await revisionsResponse.json()).revisions
+  const publishedRevision = revisions.find((revision) => revision.title === article.title && revision.status === "published")
+  assert.ok(publishedRevision)
+  const restoreRevisionResponse = await request("/api/admin/posts/integration-test-post/revisions", {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({ revisionId: publishedRevision.id }),
+  })
+  assert.equal(restoreRevisionResponse.status, 200)
+  assert.equal((await restoreRevisionResponse.json()).post.title, article.title)
+
+  const scheduledArticle = {
+    ...article,
+    slug: "integration-scheduled-post",
+    title: "定时发布流程测试",
+    status: "scheduled",
+    scheduledAt: "2099-01-01T08:00",
+  }
+  const futureScheduledResponse = await request("/api/admin/posts", {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify(scheduledArticle),
+  })
+  assert.equal(futureScheduledResponse.status, 201)
+  assert.equal((await request("/blog/integration-scheduled-post")).status, 404)
+  const dueScheduledResponse = await request("/api/admin/posts/integration-scheduled-post", {
+    method: "PUT",
+    headers: authHeaders,
+    body: JSON.stringify({ ...scheduledArticle, scheduledAt: "2000-01-01T00:00" }),
+  })
+  assert.equal(dueScheduledResponse.status, 200)
+  assert.equal((await request("/blog/integration-scheduled-post")).status, 200)
 
   const pagesResponse = await request("/api/admin/pages", { headers: { cookie } })
   assert.equal(pagesResponse.status, 200)
@@ -354,6 +437,34 @@ test("protects the management backend and supports draft-to-publish workflow", a
   assert.match(editedAlbum, /共 [\s\S]{0,40}2[\s\S]{0,40} 张/)
   assert.match(editedAlbum, /后台前移图片/)
   assert.match(editedAlbum, /后台新增相册图片/)
+
+  const createBackupResponse = await request("/api/admin/backups", {
+    method: "POST",
+    headers: { cookie, origin: baseUrl },
+  })
+  assert.equal(createBackupResponse.status, 201)
+  const backup = (await createBackupResponse.json()).backup
+  assert.match(backup.name, /^blog-\d{8}-\d{6}\.sqlite$/)
+  assert.ok(backup.size > 100)
+  const downloadBackupResponse = await request(`/api/admin/backups/${backup.name}`, { headers: { cookie } })
+  assert.equal(downloadBackupResponse.status, 200)
+  const backupBytes = Buffer.from(await downloadBackupResponse.arrayBuffer())
+  assert.equal(backupBytes.subarray(0, 16).toString("utf8"), "SQLite format 3\0")
+
+  const invalidRestoreForm = new FormData()
+  invalidRestoreForm.set("file", new Blob([Buffer.alloc(128, 1)], { type: "application/vnd.sqlite3" }), "invalid.sqlite")
+  const invalidRestoreResponse = await request("/api/admin/backups/restore", {
+    method: "POST",
+    headers: { cookie, origin: baseUrl },
+    body: invalidRestoreForm,
+  })
+  assert.equal(invalidRestoreResponse.status, 400)
+
+  const deleteBackupResponse = await request(`/api/admin/backups/${backup.name}`, {
+    method: "DELETE",
+    headers: { cookie, origin: baseUrl },
+  })
+  assert.equal(deleteBackupResponse.status, 200)
 })
 
 test("supports friend editing, ordering, deletion, and automatic review", async () => {
@@ -629,6 +740,22 @@ test("supports threaded comments, likes, reactions, and article isolation", asyn
   assert.equal(afterRootDelete.comments.find((comment) => comment.id === firstReply.id).parentId, null)
   assert.equal(afterRootDelete.comments.find((comment) => comment.id === nestedReply.id).parentId, firstReply.id)
 
+  const newerThreadResponse = await request("/api/comments", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ scope: "guestbook", target: "guestbook", nickname: "分页访客", email: "", website: "", avatarUrl: "", content: "这是用于验证按根评论分页的新留言。", company: "" }),
+  })
+  assert.equal(newerThreadResponse.status, 201)
+  const newerThread = (await newerThreadResponse.json()).comment
+  const firstPage = await (await request("/api/comments?scope=guestbook&target=guestbook&limit=1")).json()
+  assert.equal(firstPage.pagination.totalThreads, 2)
+  assert.ok(firstPage.pagination.nextCursor)
+  assert.equal(firstPage.comments.length, 1)
+  assert.equal(firstPage.comments[0].id, newerThread.id)
+  const focusedPage = await (await request(`/api/comments?scope=guestbook&target=guestbook&limit=1&focus=${firstReply.id}`)).json()
+  assert.ok(focusedPage.comments.some((comment) => comment.id === firstReply.id))
+  assert.ok(focusedPage.comments.some((comment) => comment.id === nestedReply.id))
+
   const articleHtml = await (await request("/blog/memos-casdoor-oauth-login")).text()
   assert.match(articleHtml, /文章评论/)
   assert.match(articleHtml, /邮箱（不公开/)
@@ -638,13 +765,17 @@ test("supports threaded comments, likes, reactions, and article isolation", asyn
 })
 
 test("keeps the editor responsive, stable, and free of emoji controls", async () => {
-  const [styles, editor, consoleUi, session, codeBlock] = await Promise.all([
+  const [publicStyles, enhancements, adminStyles, adminEnhancements, editor, consoleUi, session, codeBlock] = await Promise.all([
     readFile(join(projectRoot, "app", "globals.css"), "utf8"),
+    readFile(join(projectRoot, "app", "enhancements.css"), "utf8"),
+    readFile(join(projectRoot, "app", "admin", "admin-base.css"), "utf8"),
+    readFile(join(projectRoot, "app", "admin", "admin-enhancements.css"), "utf8"),
     readFile(join(projectRoot, "components", "admin-editor.tsx"), "utf8"),
     readFile(join(projectRoot, "components", "admin-console.tsx"), "utf8"),
     readFile(join(projectRoot, "lib", "admin-session.ts"), "utf8"),
     readFile(join(projectRoot, "components", "article-code-block.tsx"), "utf8"),
   ])
+  const styles = [publicStyles, enhancements, adminStyles, adminEnhancements].join("\n")
 
   assert.match(styles, /\.admin-workspace/)
   assert.match(styles, /\.admin-preview/)
@@ -675,5 +806,5 @@ test("keeps the protected article encrypted in generated source", async () => {
   const generated = await readFile(join(projectRoot, "lib", "blog-posts.generated.ts"), "utf8")
   assert.match(generated, /"protected": true/)
   assert.match(generated, /"algorithm": "AES-GCM"/)
-  assert.doesNotMatch(generated, /cjaww20040521/)
+  assert.doesNotMatch(generated, /"password"\s*:/)
 })

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react"
 
 import { TextAnimate } from "@/components/ui/text-animate"
+import { DotPattern } from "@/components/ui/dot-pattern"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
 
@@ -25,6 +26,7 @@ export function SiteFrame({
       <SiteHeader />
       <main className="subpage-main" id="main">
         <section className="page-hero" aria-labelledby="page-title">
+          <DotPattern />
           <div className="page-hero-copy">
             <p className="eyebrow">{eyebrow}</p>
             <TextAnimate as="h1" by="word" animation="slideUp" duration={0.65} once id="page-title">

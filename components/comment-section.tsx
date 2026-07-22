@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   Check,
   ExternalLink,
+  Link2,
   LoaderCircle,
   MessageSquareText,
   Reply,
@@ -15,6 +16,7 @@ import {
 
 import { AnimatedList, AnimatedListItem } from "@/components/ui/animated-list"
 import { BorderBeam } from "@/components/ui/border-beam"
+import { ConfettiBurst } from "@/components/ui/confetti-burst"
 import { ShimmerButton } from "@/components/ui/shimmer-button"
 import type {
   CommentInteractionUpdate,
@@ -119,7 +121,7 @@ function CommentThreadNode({
   const comment = node.comment
   return (
     <div className={`comment-thread-node${depth >= 3 ? " is-deep" : ""}`} data-depth={depth}>
-      <article className="comment-item">
+      <article className="comment-item" id={`comment-${comment.id}`} tabIndex={-1}>
         <header>
           <CommentAvatar nickname={comment.nickname} src={comment.avatarUrl} />
           <div>
@@ -128,8 +130,13 @@ function CommentThreadNode({
                 {comment.nickname}<ExternalLink aria-hidden="true" />
               </a>
             ) : <strong>{comment.nickname}</strong>}
-            <time dateTime={comment.createdAt}>{formatter.format(new Date(comment.createdAt))}</time>
+            <a className="comment-time-link" href={`#comment-${comment.id}`} aria-label={`定位到 ${comment.nickname} 的评论`}>
+              <time dateTime={comment.createdAt}>{formatter.format(new Date(comment.createdAt))}</time>
+            </a>
           </div>
+          <a className="comment-permalink" href={`#comment-${comment.id}`} aria-label="复制或定位到这条评论" title="评论链接">
+            <Link2 aria-hidden="true" />
+          </a>
         </header>
 
         {comment.replyToNickname ? (
@@ -161,7 +168,7 @@ function CommentThreadNode({
             </button>
           </div>
 
-          <div className="comment-reaction-actions" aria-label={`回应 ${comment.nickname} 的评论`}>
+          <div className="comment-reaction-actions" data-reaction-owner={comment.id} aria-label={`回应 ${comment.nickname} 的评论`}>
             {comment.reactions.filter((reaction) => reaction.count > 0).map((reaction) => {
               const option = commentReactionOptions.find((item) => item.kind === reaction.kind)
               if (!option) return null
@@ -262,6 +269,10 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
   const [threadError, setThreadError] = useState("")
   const [busyInteraction, setBusyInteraction] = useState("")
   const [reactionPickerId, setReactionPickerId] = useState<number | null>(null)
+  const [totalComments, setTotalComments] = useState(0)
+  const [nextCursor, setNextCursor] = useState<number | null>(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [celebration, setCelebration] = useState(0)
 
   const endpoint = useMemo(() => `/api/comments?scope=${scope}&target=${encodeURIComponent(target)}`, [scope, target])
   const threads = useMemo(() => buildCommentTree(comments), [comments])
@@ -285,8 +296,17 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
     async function load() {
       setLoading(true)
       try {
-        const data = await readJson<{ comments: PublicComment[] }>(await fetch(endpoint, { cache: "no-store" }))
-        if (!cancelled) setComments(data.comments)
+        const focusedId = Number(window.location.hash.match(/^#comment-(\d+)$/)?.[1] || 0)
+        const url = `${endpoint}&limit=12${focusedId > 0 ? `&focus=${focusedId}` : ""}`
+        const data = await readJson<{
+          comments: PublicComment[]
+          pagination: { totalComments: number; nextCursor: number | null }
+        }>(await fetch(url, { cache: "no-store" }))
+        if (!cancelled) {
+          setComments(data.comments)
+          setTotalComments(data.pagination.totalComments)
+          setNextCursor(data.pagination.nextCursor)
+        }
       } catch (reason) {
         if (!cancelled) setError(reason instanceof Error ? reason.message : "互动内容读取失败")
       } finally {
@@ -296,6 +316,58 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
     void load()
     return () => { cancelled = true }
   }, [endpoint])
+
+  useEffect(() => {
+    if (!reactionPickerId) return
+    const closePicker = (event: PointerEvent) => {
+      const target = event.target as Element | null
+      if (!target?.closest(`[data-reaction-owner="${reactionPickerId}"]`)) setReactionPickerId(null)
+    }
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setReactionPickerId(null)
+    }
+    document.addEventListener("pointerdown", closePicker)
+    document.addEventListener("keydown", closeWithEscape)
+    return () => {
+      document.removeEventListener("pointerdown", closePicker)
+      document.removeEventListener("keydown", closeWithEscape)
+    }
+  }, [reactionPickerId])
+
+  useEffect(() => {
+    if (loading || !window.location.hash.startsWith("#comment-")) return
+    const frame = window.requestAnimationFrame(() => {
+      const targetElement = document.querySelector<HTMLElement>(window.location.hash)
+      if (!targetElement) return
+      const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
+      targetElement.scrollIntoView({ behavior: reducedMotion ? "auto" : "smooth", block: "center" })
+      targetElement.focus({ preventScroll: true })
+    })
+    return () => window.cancelAnimationFrame(frame)
+  }, [comments.length, loading])
+
+  async function loadMoreComments() {
+    if (!nextCursor || loadingMore) return
+    setLoadingMore(true)
+    setThreadError("")
+    try {
+      const data = await readJson<{
+        comments: PublicComment[]
+        pagination: { totalComments: number; nextCursor: number | null }
+      }>(await fetch(`${endpoint}&limit=12&before=${nextCursor}`, { cache: "no-store" }))
+      setComments((current) => {
+        const merged = new Map(current.map((comment) => [comment.id, comment]))
+        data.comments.forEach((comment) => merged.set(comment.id, comment))
+        return [...merged.values()]
+      })
+      setTotalComments(data.pagination.totalComments)
+      setNextCursor(data.pagination.nextCursor)
+    } catch (reason) {
+      setThreadError(reason instanceof Error ? reason.message : "更早的内容读取失败")
+    } finally {
+      setLoadingMore(false)
+    }
+  }
 
   function updateProfile<K extends keyof ProfileData>(key: K, value: ProfileData[K]) {
     setProfile((current) => ({ ...current, [key]: value }))
@@ -321,7 +393,9 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
         body: JSON.stringify({ ...profile, content, company, parentId: null, scope, target }),
       }))
       setComments((current) => [...current, comment])
+      setTotalComments((current) => current + 1)
       setSuccess(scope === "guestbook" ? "留言已发布" : "评论已发布")
+      setCelebration((current) => current + 1)
       setContent("")
       setCompany("")
       persistProfile()
@@ -360,6 +434,7 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
         body: JSON.stringify({ ...profile, content: replyContent, company: replyCompany, parentId: parent.id, scope, target }),
       }))
       setComments((current) => [...current, comment])
+      setTotalComments((current) => current + 1)
       setReplyingTo(null)
       setReplyContent("")
       setReplyCompany("")
@@ -440,19 +515,20 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
 
   return (
     <section className="comment-section" id={scope === "article" ? "article-comments" : "guestbook"} aria-labelledby={`${scope}-comments-title`}>
+      <ConfettiBurst burstKey={celebration} />
       <header className="comment-section-heading">
         <div>
           <p className="section-kicker">{scope === "article" ? "DISCUSSION" : "GUESTBOOK"}</p>
           <h2 id={`${scope}-comments-title`} tabIndex={-1}>{title}</h2>
         </div>
-        <span>{comments.length} 条</span>
+        <span>{totalComments} 条</span>
       </header>
 
       <form className="comment-form magic-surface" onSubmit={(event) => void submitRoot(event)}>
         <BorderBeam size={110} duration={10} colorFrom="#111111" colorTo="#b7b7b7" borderWidth={1} />
         <div className="comment-form-grid">
           <label><span>昵称 *</span><input value={profile.nickname} onChange={(event) => updateProfile("nickname", event.target.value)} maxLength={40} autoComplete="nickname" required /></label>
-          <label><span>邮箱（不公开，可匹配头像）</span><input type="email" value={profile.email} onChange={(event) => updateProfile("email", event.target.value)} maxLength={120} autoComplete="email" /></label>
+          <label><span>邮箱（不公开，用于头像与回复提醒）</span><input type="email" value={profile.email} onChange={(event) => updateProfile("email", event.target.value)} maxLength={120} autoComplete="email" /></label>
           <label><span>个人网站</span><input type="url" value={profile.website} onChange={(event) => updateProfile("website", event.target.value)} placeholder="https://" autoComplete="url" /></label>
           <label>
             <span>头像链接</span>
@@ -482,23 +558,31 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
       {loading ? (
         <div className="comment-loading" role="status"><LoaderCircle className="spin" aria-hidden="true" /><span>正在读取</span></div>
       ) : threads.length ? (
-        <AnimatedList className="comment-list comment-thread-list">
-          {threads.map((node) => (
-            <AnimatedListItem className="comment-thread-root" key={node.comment.id}>
-              <CommentThreadNode
-                node={node}
-                depth={0}
-                replyingTo={replyingTo}
-                reactionPickerId={reactionPickerId}
-                busyInteraction={busyInteraction}
-                onReply={startReply}
-                onToggleReactionPicker={(comment) => setReactionPickerId((current) => current === comment.id ? null : comment.id)}
-                onInteraction={(comment, kind) => void toggleInteraction(comment, kind)}
-                renderReplyForm={renderReplyForm}
-              />
-            </AnimatedListItem>
-          ))}
-        </AnimatedList>
+        <>
+          <AnimatedList className="comment-list comment-thread-list">
+            {threads.map((node) => (
+              <AnimatedListItem className="comment-thread-root" key={node.comment.id}>
+                <CommentThreadNode
+                  node={node}
+                  depth={0}
+                  replyingTo={replyingTo}
+                  reactionPickerId={reactionPickerId}
+                  busyInteraction={busyInteraction}
+                  onReply={startReply}
+                  onToggleReactionPicker={(comment) => setReactionPickerId((current) => current === comment.id ? null : comment.id)}
+                  onInteraction={(comment, kind) => void toggleInteraction(comment, kind)}
+                  renderReplyForm={renderReplyForm}
+                />
+              </AnimatedListItem>
+            ))}
+          </AnimatedList>
+          {nextCursor ? (
+            <button className="comment-load-more" type="button" disabled={loadingMore} onClick={() => void loadMoreComments()}>
+              {loadingMore ? <LoaderCircle className="spin" aria-hidden="true" /> : <MessageSquareText aria-hidden="true" />}
+              {loadingMore ? "读取中" : "加载更早内容"}
+            </button>
+          ) : null}
+        </>
       ) : (
         <div className="comment-empty"><MessageSquareText aria-hidden="true" /><p>这里还没有内容，来写第一条吧。</p></div>
       )}

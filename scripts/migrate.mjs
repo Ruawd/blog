@@ -1,4 +1,4 @@
-import { mkdirSync, readFileSync, readdirSync } from "node:fs"
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync } from "node:fs"
 import { dirname, resolve } from "node:path"
 import { DatabaseSync } from "node:sqlite"
 
@@ -6,6 +6,15 @@ const databasePath = resolve(process.env.DATABASE_PATH || "./data/blog.sqlite")
 const migrationsPath = resolve("./drizzle")
 
 mkdirSync(dirname(databasePath), { recursive: true })
+const pendingRestore = `${databasePath}.restore-pending`
+if (existsSync(pendingRestore)) {
+  const safetyCopy = `${databasePath}.before-restore-${new Date().toISOString().replace(/[:.]/g, "-")}`
+  if (existsSync(databasePath)) renameSync(databasePath, safetyCopy)
+  renameSync(pendingRestore, databasePath)
+  rmSync(`${databasePath}-wal`, { force: true })
+  rmSync(`${databasePath}-shm`, { force: true })
+  console.log(`Applied pending database restore; previous database moved to ${safetyCopy}`)
+}
 const database = new DatabaseSync(databasePath)
 database.exec("PRAGMA journal_mode = WAL")
 database.exec("PRAGMA busy_timeout = 5000")

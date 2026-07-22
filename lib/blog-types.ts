@@ -1,6 +1,6 @@
 import type { EncryptedBlogContent } from "@/lib/blog-posts.generated"
 
-export type ArticleStatus = "draft" | "published"
+export type ArticleStatus = "draft" | "scheduled" | "published"
 
 export type ArticleSource = "database" | "static"
 
@@ -15,6 +15,7 @@ export type EditableArticle = {
   sourceLink: string
   status: ArticleStatus
   published: string
+  scheduledAt: string
   updated: string
   readingMinutes: number
   source: ArticleSource
@@ -38,6 +39,7 @@ export type ArticleInput = Pick<
   | "sourceLink"
   | "status"
   | "published"
+  | "scheduledAt"
   | "protected"
   | "passwordHint"
   | "readingMinutes"

@@ -5,6 +5,7 @@ import { SiteFrame } from "@/components/site-frame"
 import { ManagedPageBody } from "@/components/managed-page-body"
 import { listPublishedBlogPosts } from "@/lib/blog-repository"
 import { getPageContent } from "@/lib/page-content"
+import { createSearchAliases } from "@/lib/site-search"
 
 export const dynamic = "force-dynamic"
 
@@ -30,6 +31,13 @@ export default async function BlogPage({
     category: post.category,
     readingMinutes: post.readingMinutes,
     protected: post.protected,
+    searchAliases: createSearchAliases([
+      post.title,
+      post.description,
+      post.category,
+      post.tags.join(" "),
+      post.slug,
+    ]),
   }))
 
   return (

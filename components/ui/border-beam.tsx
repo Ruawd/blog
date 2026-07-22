@@ -1,6 +1,7 @@
 "use client"
 
-import { motion, MotionStyle, Transition } from "motion/react"
+import { useRef } from "react"
+import { motion, MotionStyle, Transition, useInView, useReducedMotion } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
@@ -64,8 +65,14 @@ export const BorderBeam = ({
   initialOffset = 0,
   borderWidth = 1,
 }: BorderBeamProps) => {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const inView = useInView(containerRef, { margin: "120px", amount: 0.01 })
+  const reduceMotion = useReducedMotion()
+  const shouldAnimate = inView && !reduceMotion
+
   return (
     <div
+      ref={containerRef}
       className="pointer-events-none absolute inset-0 rounded-[inherit] border-(length:--border-beam-width) border-transparent mask-[linear-gradient(transparent,transparent),linear-gradient(#000,#000)] mask-intersect [mask-clip:padding-box,border-box]"
       style={
         {
@@ -89,13 +96,13 @@ export const BorderBeam = ({
           } as MotionStyle
         }
         initial={{ offsetDistance: `${initialOffset}%` }}
-        animate={{
+        animate={shouldAnimate ? {
           offsetDistance: reverse
             ? [`${100 - initialOffset}%`, `${-initialOffset}%`]
             : [`${initialOffset}%`, `${100 + initialOffset}%`],
-        }}
+        } : { offsetDistance: `${initialOffset}%` }}
         transition={{
-          repeat: Infinity,
+          repeat: shouldAnimate ? Infinity : 0,
           ease: "linear",
           duration,
           delay: -delay,

@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useEffect, useMemo, useState } from "react"
 import {
   ArrowUpRight,
+  CalendarClock,
   Check,
   Clock3,
   Eye,
@@ -13,6 +14,7 @@ import {
   LoaderCircle,
   LockKeyhole,
   LockOpen,
+  History,
   RefreshCw,
   Save,
 } from "lucide-react"
@@ -27,6 +29,8 @@ type AdminEditorProps = {
 }
 
 type EditorPane = "edit" | "preview"
+type ServerAutosave = { article: EditableArticle; updatedAt: string }
+type PostRevision = { id: number; slug: string; title: string; status: ArticleStatus; updatedBy: string; createdAt: string }
 
 function localDate(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -50,6 +54,7 @@ function createBlankArticle(): EditableArticle {
     sourceLink: "",
     status: "draft",
     published: today,
+    scheduledAt: "",
     updated: today,
     readingMinutes: 1,
     source: "database",
@@ -85,7 +90,7 @@ function readCachedArticle(slug: string | null): EditableArticle | null {
     const value = window.localStorage.getItem(cacheKey(slug))
     if (!value) return null
     const parsed = JSON.parse(value) as { article?: EditableArticle }
-    return parsed.article ?? null
+    return parsed.article ? { ...parsed.article, scheduledAt: parsed.article.scheduledAt || "" } : null
   } catch {
     return null
   }
@@ -113,6 +118,11 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
   const [protectedPassword, setProtectedPassword] = useState("")
   const [protectedUnlocked, setProtectedUnlocked] = useState(false)
   const [unlocking, setUnlocking] = useState(false)
+  const [autosaving, setAutosaving] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [revisions, setRevisions] = useState<PostRevision[]>([])
+  const [loadingRevisions, setLoadingRevisions] = useState(false)
+  const [restoringRevision, setRestoringRevision] = useState<number | null>(null)
   const canEdit = Boolean(draft?.editable && (!draft.protected || protectedUnlocked))
 
   useEffect(() => {
@@ -128,18 +138,23 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
         setPosts(loadedPosts)
 
         if (loadedPosts[0]) {
-          const { post } = await readJson<{ post: EditableArticle }>(
+          const { post, autosave } = await readJson<{ post: EditableArticle; autosave: ServerAutosave | null }>(
             await fetch(`/api/admin/posts/${encodeURIComponent(loadedPosts[0].slug)}`, { cache: "no-store" }),
           )
           if (cancelled) return
           const cached = post.protected ? null : readCachedArticle(post.slug)
           setActiveSlug(post.slug)
-          setDraft(cached ?? post)
-          setDirty(Boolean(cached))
+          const recovered = cached ?? autosave?.article ?? post
+          setDraft({ ...recovered, scheduledAt: recovered.scheduledAt || "" })
+          setDirty(Boolean(cached || autosave))
           setProtectedUnlocked(false)
           setProtectedPassword("")
           setUnlockPassword("")
-          setMessage(cached ? "已恢复这篇文章在本机未保存的内容" : "")
+          setMessage(cached
+            ? "已恢复这篇文章在本机未保存的内容"
+            : autosave
+              ? `已恢复服务器自动保存内容（${new Date(autosave.updatedAt).toLocaleString("zh-CN")}）`
+              : "")
         } else {
           const cached = readCachedArticle(null)
           setDraft(cached ?? createBlankArticle())
@@ -166,6 +181,31 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
     }, 500)
     return () => window.clearTimeout(timer)
   }, [activeSlug, dirty, draft])
+
+  useEffect(() => {
+    if (!activeSlug || !draft || !dirty || draft.protected || saving) return
+    const controller = new AbortController()
+    const timer = window.setTimeout(async () => {
+      setAutosaving(true)
+      try {
+        await readJson(await fetch(`/api/admin/posts/${encodeURIComponent(activeSlug)}/autosave`, {
+          method: "PUT",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ article: draft }),
+          signal: controller.signal,
+        }))
+        setMessage("未发布修改已自动保存到服务器")
+      } catch (reason) {
+        if ((reason as Error).name !== "AbortError") setMessage("本机草稿已保存，服务器自动保存暂时失败")
+      } finally {
+        if (!controller.signal.aborted) setAutosaving(false)
+      }
+    }, 4_000)
+    return () => {
+      window.clearTimeout(timer)
+      controller.abort()
+    }
+  }, [activeSlug, dirty, draft, saving])
 
   useEffect(() => {
     const warnBeforeLeaving = (event: BeforeUnloadEvent) => {
@@ -205,18 +245,25 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
     setError("")
     setMessage("")
     try {
-      const { post } = await readJson<{ post: EditableArticle }>(
+      const { post, autosave } = await readJson<{ post: EditableArticle; autosave: ServerAutosave | null }>(
         await fetch(`/api/admin/posts/${encodeURIComponent(slug)}`, { cache: "no-store" }),
       )
       const cached = post.protected ? null : readCachedArticle(slug)
+      const recovered = cached ?? autosave?.article ?? post
       setActiveSlug(slug)
-      setDraft(cached ?? post)
-      setDirty(Boolean(cached))
+      setDraft({ ...recovered, scheduledAt: recovered.scheduledAt || "" })
+      setDirty(Boolean(cached || autosave))
       setProtectedUnlocked(false)
       setProtectedPassword("")
       setUnlockPassword("")
       setSlugTouched(true)
-      setMessage(cached ? "已恢复这篇文章在本机未保存的内容" : "")
+      setMessage(cached
+        ? "已恢复这篇文章在本机未保存的内容"
+        : autosave
+          ? `已恢复服务器自动保存内容（${new Date(autosave.updatedAt).toLocaleString("zh-CN")}）`
+          : "")
+      setHistoryOpen(false)
+      setRevisions([])
       setPane("edit")
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "文章读取失败")
@@ -301,6 +348,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
         sourceLink: draft.sourceLink,
         status,
         published: draft.published,
+        scheduledAt: draft.scheduledAt,
         protected: draft.protected,
         passwordHint: draft.passwordHint,
         readingMinutes: estimateReadingMinutes(draft.content),
@@ -325,14 +373,69 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
       setSlugTouched(true)
       setMessage(
         post.protected
-          ? status === "published" ? "加密正文已重新加密并发布" : "加密草稿已安全保存"
-          : status === "published" ? "文章已发布，前台现在可以看到" : "草稿已保存",
+          ? status === "published"
+            ? "加密正文已重新加密并发布"
+            : status === "scheduled"
+              ? `加密文章已安排在 ${post.scheduledAt.replace("T", " ")} 发布`
+              : "加密草稿已安全保存"
+          : status === "published"
+            ? "文章已发布，前台现在可以看到"
+            : status === "scheduled"
+              ? `文章已安排在 ${post.scheduledAt.replace("T", " ")} 发布`
+              : "草稿已保存",
       )
       await refreshList()
+      if (historyOpen) await loadRevisions(post.slug)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "文章保存失败")
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function loadRevisions(slug = activeSlug) {
+    if (!slug) return
+    setLoadingRevisions(true)
+    try {
+      const data = await readJson<{ revisions: PostRevision[] }>(
+        await fetch(`/api/admin/posts/${encodeURIComponent(slug)}/revisions`, { cache: "no-store" }),
+      )
+      setRevisions(data.revisions)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "历史版本读取失败")
+    } finally {
+      setLoadingRevisions(false)
+    }
+  }
+
+  async function toggleHistory() {
+    const next = !historyOpen
+    setHistoryOpen(next)
+    if (next && activeSlug) await loadRevisions(activeSlug)
+  }
+
+  async function restoreRevision(revision: PostRevision) {
+    if (!activeSlug || restoringRevision || !window.confirm(`确定恢复 ${new Date(revision.createdAt).toLocaleString("zh-CN")} 的版本吗？当前版本会自动进入历史记录。`)) return
+    setRestoringRevision(revision.id)
+    setError("")
+    try {
+      const data = await readJson<{ post: EditableArticle; revisions: PostRevision[] }>(await fetch(
+        `/api/admin/posts/${encodeURIComponent(activeSlug)}/revisions`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ revisionId: revision.id }),
+        },
+      ))
+      setDraft({ ...data.post, scheduledAt: data.post.scheduledAt || "" })
+      setRevisions(data.revisions)
+      setDirty(false)
+      setMessage("历史版本已恢复")
+      await refreshList()
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "历史版本恢复失败")
+    } finally {
+      setRestoringRevision(null)
     }
   }
 
@@ -362,7 +465,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
             >
               <span>
                 {post.protected ? <LockKeyhole aria-hidden="true" /> : <FilePenLine aria-hidden="true" />}
-                {post.status === "published" ? "已发布" : "草稿"}
+                {post.status === "published" ? "已发布" : post.status === "scheduled" ? "定时" : "草稿"}
               </span>
               <strong>{post.title}</strong>
               <small>{post.category} · {post.updated}</small>
@@ -393,16 +496,23 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
               <div className="admin-form-topline">
                 <div>
                   <span className={`admin-status-badge is-${draft.status}`}>
-                    {draft.status === "published" ? <Check aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
-                    {draft.status === "published" ? "已发布" : "草稿"}
+                    {draft.status === "published" ? <Check aria-hidden="true" /> : draft.status === "scheduled" ? <CalendarClock aria-hidden="true" /> : <Clock3 aria-hidden="true" />}
+                    {draft.status === "published" ? "已发布" : draft.status === "scheduled" ? "等待定时发布" : "草稿"}
                   </span>
-                  <span>{dirty ? "有未保存修改" : "内容已同步"}</span>
+                  <span>{autosaving ? "正在自动保存" : dirty ? "有未保存修改" : "内容已同步"}</span>
                 </div>
-                {draft.status === "published" && activeSlug ? (
-                  <Link href={`/blog/${activeSlug}`} target="_blank">
-                    查看文章 <ArrowUpRight aria-hidden="true" />
-                  </Link>
-                ) : null}
+                <div className="admin-topline-actions">
+                  {activeSlug ? (
+                    <button type="button" onClick={() => void toggleHistory()} aria-expanded={historyOpen}>
+                      <History aria-hidden="true" />历史版本
+                    </button>
+                  ) : null}
+                  {draft.status === "published" && activeSlug ? (
+                    <Link href={`/blog/${activeSlug}`} target="_blank">
+                      查看文章 <ArrowUpRight aria-hidden="true" />
+                    </Link>
+                  ) : null}
+                </div>
               </div>
 
               {draft.protected && !protectedUnlocked ? (
@@ -491,6 +601,18 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                 </div>
               </div>
 
+              <div className="admin-field admin-schedule-field">
+                <label htmlFor="article-scheduled-at">定时发布时间</label>
+                <input
+                  id="article-scheduled-at"
+                  type="datetime-local"
+                  value={draft.scheduledAt}
+                  onChange={(event) => updateDraft("scheduledAt", event.target.value)}
+                  disabled={!canEdit}
+                />
+                <small>填写后点击“定时发布”；到达该时间后文章会自动进入公开列表。</small>
+              </div>
+
               <div className="admin-field-grid">
                 <div className="admin-field">
                   <label htmlFor="article-category">分类</label>
@@ -567,16 +689,47 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                 />
               </div>
 
+              {historyOpen ? (
+                <section className="admin-revision-panel" aria-labelledby="admin-revision-title">
+                  <header>
+                    <div><History aria-hidden="true" /><span><strong id="admin-revision-title">历史版本</strong><small>最多保留 50 份手动保存记录</small></span></div>
+                    <button type="button" onClick={() => void loadRevisions()} disabled={loadingRevisions} aria-label="刷新历史版本">
+                      <RefreshCw className={loadingRevisions ? "spin" : ""} aria-hidden="true" />
+                    </button>
+                  </header>
+                  <div>
+                    {loadingRevisions ? (
+                      <p><LoaderCircle className="spin" aria-hidden="true" />正在读取历史版本</p>
+                    ) : revisions.length ? revisions.map((revision) => (
+                      <article key={revision.id}>
+                        <div>
+                          <strong>{revision.title}</strong>
+                          <small>{new Date(revision.createdAt).toLocaleString("zh-CN")} · {revision.updatedBy} · {revision.status === "published" ? "已发布" : revision.status === "scheduled" ? "定时" : "草稿"}</small>
+                        </div>
+                        <button type="button" onClick={() => void restoreRevision(revision)} disabled={Boolean(restoringRevision)}>
+                          {restoringRevision === revision.id ? <LoaderCircle className="spin" aria-hidden="true" /> : <History aria-hidden="true" />}
+                          恢复
+                        </button>
+                      </article>
+                    )) : <p>还没有历史版本；下一次手动保存时会自动记录当前版本。</p>}
+                  </div>
+                </section>
+              ) : null}
+
               <div className="admin-savebar">
                 <div aria-live="polite">
                   {error ? <span className="admin-error">{error}</span> : null}
                   {!error && message ? <span className="admin-success">{message}</span> : null}
-                  {!error && !message && dirty ? <span>未保存内容已临时保存在本机</span> : null}
+                  {!error && !message && dirty ? <span>{activeSlug ? "未保存内容会同步到本机和服务器草稿" : "新文章未保存内容已临时保存在本机"}</span> : null}
                 </div>
                 <div>
                   <button type="button" className="admin-secondary-button" onClick={() => void saveArticle("draft")} disabled={saving || !canEdit}>
                     {saving ? <LoaderCircle aria-hidden="true" /> : <Save aria-hidden="true" />}
                     保存草稿
+                  </button>
+                  <button type="button" className="admin-secondary-button" onClick={() => void saveArticle("scheduled")} disabled={saving || !canEdit || !draft.scheduledAt}>
+                    {saving ? <LoaderCircle aria-hidden="true" /> : <CalendarClock aria-hidden="true" />}
+                    定时发布
                   </button>
                   <button type="button" className="admin-primary-button" onClick={() => void saveArticle("published")} disabled={saving || !canEdit}>
                     {saving ? <LoaderCircle aria-hidden="true" /> : <Check aria-hidden="true" />}

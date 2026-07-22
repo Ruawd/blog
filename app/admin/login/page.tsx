@@ -31,7 +31,7 @@ export default async function AdminLoginPage({
     <main className="admin-login-page">
       <section className="admin-login-card" aria-labelledby="admin-login-title">
         <Link className="admin-login-brand" href="/" aria-label="返回网站主页">
-          <Image src={siteConfig.avatar} alt="" width={42} height={42} unoptimized />
+          <Image src={siteConfig.avatar} alt="" width={42} height={42} />
           <span>{siteConfig.name}</span>
         </Link>
         <header>

@@ -90,6 +90,7 @@ export function AdminFriendEditor() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [reviewing, setReviewing] = useState(false)
+  const [reviewingAll, setReviewingAll] = useState(false)
   const [moving, setMoving] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState("")
@@ -222,6 +223,26 @@ export function AdminFriendEditor() {
     }
   }
 
+  async function reviewAllFriends() {
+    if (reviewingAll || dirty || !window.confirm("重新检查所有已通过和待审核友链吗？失效友链会转为待审核。")) return
+    setReviewingAll(true)
+    clearFeedback()
+    try {
+      const data = await readJson<{ friends: FriendLink[]; checked: number; approved: number; pending: number }>(
+        await fetch("/api/admin/friends/review-all", { method: "POST" }),
+      )
+      setFriends(data.friends)
+      const selected = data.friends.find((friend) => friend.id === activeId) || data.friends[0] || null
+      setActiveId(selected?.id || null)
+      setDraft(selected ? toInput(selected) : null)
+      setMessage(`已检查 ${data.checked} 条：${data.approved} 条通过，${data.pending} 条需要处理`)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "批量检查失败")
+    } finally {
+      setReviewingAll(false)
+    }
+  }
+
   async function moveFriend(direction: "up" | "down") {
     if (!active || dirty || moving) return
     setMoving(true)
@@ -296,6 +317,10 @@ export function AdminFriendEditor() {
         ))}
         <button className="admin-friend-refresh" type="button" onClick={() => void reload()} aria-label="刷新友链列表">
           <RefreshCw aria-hidden="true" />
+        </button>
+        <button type="button" onClick={() => void reviewAllFriends()} disabled={reviewingAll || dirty}>
+          {reviewingAll ? <LoaderCircle className="spin" aria-hidden="true" /> : <ScanSearch aria-hidden="true" />}
+          {reviewingAll ? "检查中" : "全部复查"}
         </button>
       </div>
 

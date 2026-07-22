@@ -36,6 +36,23 @@ export type CommentInteractionUpdate = {
   count: number
   active: boolean
 }
+export type PublicCommentPage = {
+  comments: PublicComment[]
+  pagination: {
+    totalComments: number
+    totalThreads: number
+    nextCursor: number | null
+  }
+}
+export type CommentNotificationContext = {
+  id: number
+  scope: CommentScope
+  target: string
+  parentId: number | null
+  nickname: string
+  email: string
+  content: string
+}
 
 type CommentRow = {
   id: number
@@ -307,6 +324,10 @@ export function normalizeComment(value: unknown) {
   if (nickname.length < 2 || nickname.length > 40) throw new Error("昵称需要 2–40 个字符")
   if (email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 120)) throw new Error("邮箱格式不正确")
   if (content.length < 2 || content.length > 2000) throw new Error("内容需要 2–2000 个字符")
+  const linkCount = (content.match(/(?:https?:\/\/|www\.)/gi) || []).length
+  if (linkCount > 4) throw new Error("单条内容最多包含 4 个链接")
+  if ((content.match(/\n/g) || []).length > 60) throw new Error("内容换行过多")
+  if (/(.)\1{39,}/u.test(content)) throw new Error("内容包含过多重复字符")
   return {
     scope,
     target,
@@ -333,6 +354,72 @@ export async function listPublicComments(scopeValue: unknown, targetValue: unkno
   return visible.map((row) => toPublicComment(row, interactions.get(row.id) || emptyInteractionSummary()))
 }
 
+export async function listPublicCommentPage(
+  scopeValue: unknown,
+  targetValue: unknown,
+  actorHash = "",
+  options: { limit?: number; before?: unknown; focus?: unknown } = {},
+): Promise<PublicCommentPage> {
+  const scope = validateScope(scopeValue)
+  const target = validateTarget(scope, targetValue)
+  const limit = Math.min(50, Math.max(1, Number.isFinite(options.limit) ? Math.floor(Number(options.limit)) : 12))
+  const beforeValue = Number(options.before)
+  const before = Number.isSafeInteger(beforeValue) && beforeValue > 0 ? beforeValue : null
+  const focusValue = Number(options.focus)
+  const focus = Number.isSafeInteger(focusValue) && focusValue > 0 ? focusValue : null
+  const db = ensureCommentSchema()
+  const rows = db.prepare(`
+    ${select}
+    WHERE c.scope = ? AND c.target = ?
+    ORDER BY datetime(c.created_at) ASC, c.id ASC
+  `).all(scope, target) as unknown as CommentRow[]
+  const visible = visibleApprovedRows(rows)
+  const roots = visible
+    .filter((row) => row.parentId === null)
+    .sort((left, right) => Date.parse(right.createdAt) - Date.parse(left.createdAt) || right.id - left.id)
+  const eligibleRoots = before ? roots.filter((row) => row.id < before) : roots
+  const byId = new Map(visible.map((row) => [row.id, row]))
+  const rootMemo = new Map<number, number | null>()
+
+  function rootId(row: CommentRow): number | null {
+    if (rootMemo.has(row.id)) return rootMemo.get(row.id) ?? null
+    const visited = new Set<number>()
+    let current: CommentRow | undefined = row
+    while (current?.parentId) {
+      if (visited.has(current.id)) return null
+      visited.add(current.id)
+      current = byId.get(current.parentId)
+    }
+    const id = current?.id ?? null
+    rootMemo.set(row.id, id)
+    return id
+  }
+
+  const focusedRow = !before && focus ? byId.get(focus) : undefined
+  const focusedRootId = focusedRow ? rootId(focusedRow) : null
+  const focusedRoot = focusedRootId ? roots.find((row) => row.id === focusedRootId) : null
+  const selectedRoots = focusedRoot
+    ? [focusedRoot, ...eligibleRoots.filter((row) => row.id !== focusedRoot.id)].slice(0, limit)
+    : eligibleRoots.slice(0, limit)
+  const selectedRootIds = new Set(selectedRoots.map((row) => row.id))
+
+  const selectedRows = visible.filter((row) => {
+    const root = rootId(row)
+    return root !== null && selectedRootIds.has(root)
+  })
+  const interactions = interactionSummaries(db, selectedRows.map((row) => row.id), actorHash)
+  const hasMore = eligibleRoots.some((row) => !selectedRootIds.has(row.id))
+
+  return {
+    comments: selectedRows.map((row) => toPublicComment(row, interactions.get(row.id) || emptyInteractionSummary())),
+    pagination: {
+      totalComments: visible.length,
+      totalThreads: roots.length,
+      nextCursor: hasMore ? selectedRoots.at(-1)?.id ?? null : null,
+    },
+  }
+}
+
 export async function createComment(value: unknown, ipAddress: string): Promise<PublicComment> {
   const input = normalizeComment(value)
   const db = ensureCommentSchema()
@@ -340,6 +427,13 @@ export async function createComment(value: unknown, ipAddress: string): Promise<
   const now = new Date().toISOString()
   const secret = process.env.SESSION_SECRET || "local-comment-hash"
   const ipHash = createHmac("sha256", secret).update(ipAddress).digest("hex")
+  const duplicateSince = new Date(Date.now() - 10 * 60_000).toISOString()
+  const duplicate = db.prepare(`
+    SELECT id FROM comments
+    WHERE scope = ? AND target = ? AND ip_hash = ? AND content = ? AND created_at >= ?
+    LIMIT 1
+  `).get(input.scope, input.target, ipHash, input.content, duplicateSince)
+  if (duplicate) throw new Error("请勿重复提交相同内容")
   const result = db.prepare(`
     INSERT INTO comments (
       scope, target, parent_id, nickname, email, website, avatar_url, content,
@@ -421,6 +515,21 @@ export function getApprovedCommentEmail(id: number): string | null {
     return null
   }
   return row.email.trim().toLowerCase() || null
+}
+
+export function getCommentNotificationContext(id: number): CommentNotificationContext | null {
+  if (!Number.isSafeInteger(id) || id < 1) return null
+  const row = commentRow(id)
+  if (!row || row.status !== "approved") return null
+  return {
+    id: row.id,
+    scope: row.scope,
+    target: row.target,
+    parentId: row.parentId,
+    nickname: row.nickname,
+    email: row.email.trim().toLowerCase(),
+    content: row.content,
+  }
 }
 
 export async function deleteComment(id: number): Promise<boolean> {

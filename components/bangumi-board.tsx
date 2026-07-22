@@ -17,6 +17,7 @@ import {
 import { ResilientImage } from "@/components/resilient-image"
 import { AnimatedList, AnimatedListItem } from "@/components/ui/animated-list"
 import { BorderBeam } from "@/components/ui/border-beam"
+import { NumberTicker } from "@/components/ui/number-ticker"
 import type {
   BangumiCollectionItem,
   BangumiLibrary,
@@ -109,6 +110,7 @@ function BangumiCard({
 export function BangumiBoard({ library }: { library: BangumiLibrary }) {
   const [activeCategory, setActiveCategory] = useState<BangumiCategory>(library.sections[0]?.id || "anime")
   const [activeStatus, setActiveStatus] = useState<number | "all">("all")
+  const [activeYear, setActiveYear] = useState<string>("all")
   const [page, setPage] = useState(1)
   const section = library.sections.find((item) => item.id === activeCategory) || library.sections[0]
 
@@ -118,9 +120,27 @@ export function BangumiBoard({ library }: { library: BangumiLibrary }) {
     return counts
   }, [section])
 
+  const allItems = useMemo(() => library.sections.flatMap((item) => item.items), [library.sections])
+  const statistics = useMemo(() => {
+    const rated = allItems.filter((item) => item.rate > 0)
+    const currentYear = String(new Date().getFullYear())
+    return {
+      completed: allItems.filter((item) => item.type === 2).length,
+      current: allItems.filter((item) => item.type === 3).length,
+      average: rated.length ? rated.reduce((sum, item) => sum + item.rate, 0) / rated.length : 0,
+      thisYear: allItems.filter((item) => item.updated_at.startsWith(currentYear)).length,
+    }
+  }, [allItems])
+  const availableYears = useMemo(() => [...new Set((section?.items || [])
+    .map((item) => item.subject.date?.slice(0, 4) || "")
+    .filter(Boolean))].sort((left, right) => right.localeCompare(left)), [section])
+
   const filteredItems = useMemo(
-    () => (section?.items || []).filter((item) => activeStatus === "all" || item.type === activeStatus),
-    [activeStatus, section],
+    () => (section?.items || []).filter((item) => (
+      (activeStatus === "all" || item.type === activeStatus)
+      && (activeYear === "all" || item.subject.date?.startsWith(activeYear))
+    )),
+    [activeStatus, activeYear, section],
   )
   const pageCount = Math.max(1, Math.ceil(filteredItems.length / itemsPerPage))
   const safePage = Math.min(page, pageCount)
@@ -131,6 +151,7 @@ export function BangumiBoard({ library }: { library: BangumiLibrary }) {
   function selectCategory(id: BangumiCategory) {
     setActiveCategory(id)
     setActiveStatus("all")
+    setActiveYear("all")
     setPage(1)
   }
 
@@ -145,9 +166,16 @@ export function BangumiBoard({ library }: { library: BangumiLibrary }) {
         <BorderBeam size={150} duration={10} colorFrom="#111111" colorTo="#b4b4b4" borderWidth={1} />
         <div>
           <ActiveIcon aria-hidden="true" />
-          <span><small>同步自 Bangumi</small><strong id="bangumi-library-title">{library.total} 个收藏条目</strong></span>
+          <span><small>同步自 Bangumi</small><strong id="bangumi-library-title"><NumberTicker value={library.total} /> 个收藏条目</strong></span>
         </div>
         <a href={library.profileUrl} target="_blank" rel="noreferrer nofollow">@{library.userId}<ExternalLink aria-hidden="true" /></a>
+      </div>
+
+      <div className="bangumi-stat-grid" aria-label="收藏统计">
+        <article><small>已完成</small><strong><NumberTicker value={statistics.completed} /></strong><span>个条目</span></article>
+        <article><small>进行中</small><strong><NumberTicker value={statistics.current} /></strong><span>个条目</span></article>
+        <article><small>平均评分</small><strong><NumberTicker value={statistics.average} decimals={1} /></strong><span>/ 10</span></article>
+        <article><small>{new Date().getFullYear()} 年更新</small><strong><NumberTicker value={statistics.thisYear} /></strong><span>次收藏</span></article>
       </div>
 
       <nav className="bangumi-category-tabs" aria-label="番组分类">
@@ -168,14 +196,24 @@ export function BangumiBoard({ library }: { library: BangumiLibrary }) {
             <p>{filteredItems.length} / {section.count} 个条目</p>
           </header>
 
-          <div className="bangumi-status-filters" role="group" aria-label={`${section.label}收藏状态筛选`}>
-            <ListFilter aria-hidden="true" />
-            <button type="button" className={activeStatus === "all" ? "is-active" : ""} aria-pressed={activeStatus === "all"} onClick={() => selectStatus("all")}>全部 <span>{section.count}</span></button>
-            {statusOrder.filter((status) => statusCounts.has(status)).map((status) => (
-              <button type="button" className={activeStatus === status ? "is-active" : ""} aria-pressed={activeStatus === status} onClick={() => selectStatus(status)} key={status}>
-                {statusLabel(section.id, status)} <span>{statusCounts.get(status)}</span>
-              </button>
-            ))}
+          <div className="bangumi-status-filters">
+            <div className="bangumi-status-scroll" role="group" aria-label={`${section.label}收藏状态筛选`}>
+              <ListFilter aria-hidden="true" />
+              <button type="button" className={activeStatus === "all" ? "is-active" : ""} aria-pressed={activeStatus === "all"} onClick={() => selectStatus("all")}>全部 <span>{section.count}</span></button>
+              {statusOrder.filter((status) => statusCounts.has(status)).map((status) => (
+                <button type="button" className={activeStatus === status ? "is-active" : ""} aria-pressed={activeStatus === status} onClick={() => selectStatus(status)} key={status}>
+                  {statusLabel(section.id, status)} <span>{statusCounts.get(status)}</span>
+                </button>
+              ))}
+            </div>
+            <label className="bangumi-year-filter">
+              <CalendarDays aria-hidden="true" />
+              <span className="sr-only">按年份筛选</span>
+              <select value={activeYear} onChange={(event) => { setActiveYear(event.target.value); setPage(1) }}>
+                <option value="all">全部年份</option>
+                {availableYears.map((year) => <option value={year} key={year}>{year} 年</option>)}
+              </select>
+            </label>
           </div>
 
           {visibleItems.length ? (

@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { useDeferredValue, useMemo, useState } from "react"
 import { ArrowRight, LockKeyhole, Search, SearchX, X } from "lucide-react"
-import { pinyin } from "pinyin-pro"
 
 import { ResilientImage } from "@/components/resilient-image"
 import { AnimatedList, AnimatedListItem } from "@/components/ui/animated-list"
@@ -18,6 +17,7 @@ export type BlogExplorerPost = {
   category: string
   readingMinutes: number
   protected: boolean
+  searchAliases: string[]
 }
 
 type SearchablePost = {
@@ -41,25 +41,9 @@ function normalizeSearchText(value: string) {
 }
 
 function createSearchablePost(post: BlogExplorerPost): SearchablePost {
-  const source = [post.title, post.description, post.category, post.tags.join(" "), post.slug].join(" ")
-  const fullPinyin = pinyin(source, {
-    toneType: "none",
-    pattern: "pinyin",
-    separator: "",
-    nonZh: "consecutive",
-    v: true,
-  })
-  const pinyinInitials = pinyin(source, {
-    toneType: "none",
-    pattern: "first",
-    separator: "",
-    nonZh: "consecutive",
-    v: true,
-  })
-
   return {
     post,
-    haystacks: [source, fullPinyin, pinyinInitials].map(normalizeSearchText),
+    haystacks: post.searchAliases.map(normalizeSearchText),
   }
 }
 

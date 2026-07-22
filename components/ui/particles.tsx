@@ -51,9 +51,13 @@ export function Particles({
 
     const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
     const pointer = { x: 0, y: 0 }
+    const finePointer = window.matchMedia("(pointer: fine)").matches
+    const compactViewport = window.matchMedia("(max-width: 640px)").matches
     let width = 0
     let height = 0
     let frame = 0
+    let isIntersecting = true
+    let isDocumentVisible = document.visibilityState === "visible"
     let particles: Particle[] = []
     const [red, green, blue] = rgb(color)
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
@@ -76,7 +80,8 @@ export function Particles({
       canvas.style.width = `${width}px`
       canvas.style.height = `${height}px`
       context.setTransform(dpr, 0, 0, dpr, 0, 0)
-      particles = Array.from({ length: quantity }, createParticle)
+      const effectiveQuantity = compactViewport ? Math.max(24, Math.round(quantity * 0.48)) : quantity
+      particles = Array.from({ length: effectiveQuantity }, createParticle)
     }
 
     const onPointerMove = (event: PointerEvent) => {
@@ -85,7 +90,10 @@ export function Particles({
       pointer.y = event.clientY - rect.top - height / 2
     }
 
+    const shouldAnimate = () => !prefersReducedMotion && isIntersecting && isDocumentVisible
+
     const draw = () => {
+      frame = 0
       context.clearRect(0, 0, width, height)
       particles.forEach((particle) => {
         particle.x += particle.dx + vx + pointer.x / (staticity * ease * particle.magnetism)
@@ -99,18 +107,40 @@ export function Particles({
         context.fillStyle = `rgba(${red}, ${green}, ${blue}, ${particle.alpha})`
         context.fill()
       })
-      if (!prefersReducedMotion) frame = window.requestAnimationFrame(draw)
+      if (shouldAnimate()) frame = window.requestAnimationFrame(draw)
+    }
+
+    const syncAnimation = () => {
+      if (shouldAnimate()) {
+        if (!frame) frame = window.requestAnimationFrame(draw)
+      } else if (frame) {
+        window.cancelAnimationFrame(frame)
+        frame = 0
+      }
+    }
+
+    const handleVisibility = () => {
+      isDocumentVisible = document.visibilityState === "visible"
+      syncAnimation()
     }
 
     const observer = new ResizeObserver(resize)
+    const visibilityObserver = new IntersectionObserver(([entry]) => {
+      isIntersecting = entry?.isIntersecting ?? true
+      syncAnimation()
+    }, { rootMargin: "120px" })
     observer.observe(container)
-    window.addEventListener("pointermove", onPointerMove, { passive: true })
+    visibilityObserver.observe(container)
+    if (finePointer) window.addEventListener("pointermove", onPointerMove, { passive: true })
+    document.addEventListener("visibilitychange", handleVisibility)
     resize()
     draw()
 
     return () => {
       observer.disconnect()
-      window.removeEventListener("pointermove", onPointerMove)
+      visibilityObserver.disconnect()
+      if (finePointer) window.removeEventListener("pointermove", onPointerMove)
+      document.removeEventListener("visibilitychange", handleVisibility)
       window.cancelAnimationFrame(frame)
     }
   }, [color, ease, quantity, size, staticity, vx, vy])

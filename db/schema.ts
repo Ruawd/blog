@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { index, integer, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core"
+import { index, integer, primaryKey, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core"
 
 export const posts = sqliteTable(
   "posts",
@@ -13,8 +13,9 @@ export const posts = sqliteTable(
     tagsJson: text("tags_json").notNull().default("[]"),
     image: text("image"),
     sourceLink: text("source_link"),
-    status: text("status", { enum: ["draft", "published"] }).notNull().default("draft"),
+    status: text("status", { enum: ["draft", "scheduled", "published"] }).notNull().default("draft"),
     publishedAt: text("published_at").notNull(),
+    scheduledAt: text("scheduled_at"),
     readingMinutes: integer("reading_minutes").notNull().default(1),
     authorEmail: text("author_email").notNull(),
     updatedBy: text("updated_by").notNull(),
@@ -60,6 +61,8 @@ export const albumPhotos = sqliteTable(
     caption: text("caption").notNull().default(""),
     width: integer("width").notNull(),
     height: integer("height").notNull(),
+    takenAt: text("taken_at").notNull().default(""),
+    originalName: text("original_name").notNull().default(""),
     sortOrder: integer("sort_order").notNull(),
     updatedBy: text("updated_by").notNull(),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
@@ -127,5 +130,38 @@ export const commentInteractions = sqliteTable(
   (table) => [
     uniqueIndex("comment_interactions_actor_kind_unique").on(table.commentId, table.actorHash, table.kind),
     index("comment_interactions_comment_kind_idx").on(table.commentId, table.kind),
+  ],
+)
+
+export const postRevisions = sqliteTable(
+  "post_revisions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    slug: text("slug").notNull(),
+    snapshotJson: text("snapshot_json").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("post_revisions_slug_created_idx").on(table.slug, table.createdAt, table.id)],
+)
+
+export const postAutosaves = sqliteTable("post_autosaves", {
+  slug: text("slug").primaryKey(),
+  snapshotJson: text("snapshot_json").notNull(),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+})
+
+export const requestRateLimits = sqliteTable(
+  "request_rate_limits",
+  {
+    action: text("action").notNull(),
+    actorHash: text("actor_hash").notNull(),
+    windowStarted: integer("window_started").notNull(),
+    attempts: integer("attempts").notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.action, table.actorHash] }),
+    index("request_rate_limits_window_idx").on(table.windowStarted),
   ],
 )

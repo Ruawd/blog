@@ -1,6 +1,7 @@
 import { isSameOrigin, requireAdminApi } from "@/lib/admin-session"
 import { reviewFriendCandidate } from "@/lib/friend-review"
 import { applyFriendReview, getFriendLink } from "@/lib/friend-repository"
+import { expirePublicCache, publicCacheTags } from "@/lib/public-cache"
 
 export const dynamic = "force-dynamic"
 
@@ -16,6 +17,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!current.backlinkUrl) return Response.json({ error: "请先填写对方的友链页面" }, { status: 400 })
     const review = await reviewFriendCandidate(current)
     const friend = applyFriendReview(id, review, auth.user.username)
+    expirePublicCache([publicCacheTags.friends], ["/friends"])
     return Response.json({ friend, review })
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "自动审核失败" }, { status: 400 })

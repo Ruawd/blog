@@ -23,7 +23,7 @@ export default async function AdminPage() {
       <a className="skip-link" href="#admin-main">跳到内容管理区</a>
       <header className="admin-header">
         <Link className="admin-brand" href="/" aria-label="返回网站主页">
-          <Image src={siteConfig.avatar} alt="" width={34} height={34} unoptimized />
+          <Image src={siteConfig.avatar} alt="" width={34} height={34} />
           <span>{siteConfig.name}</span>
           <small>内容管理</small>
         </Link>

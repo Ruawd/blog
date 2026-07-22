@@ -4,25 +4,11 @@ import {
   normalizeFriendApplication,
   saveFriendApplication,
 } from "@/lib/friend-repository"
+import { expirePublicCache, publicCacheTags } from "@/lib/public-cache"
+import { clientAddress } from "@/lib/request-client"
+import { consumeRateLimit } from "@/lib/rate-limit"
 
 export const dynamic = "force-dynamic"
-
-const attempts = new Map<string, number[]>()
-
-function clientAddress(request: Request): string {
-  return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    || request.headers.get("x-real-ip")
-    || "local"
-}
-
-function isRateLimited(address: string): boolean {
-  const now = Date.now()
-  const recent = (attempts.get(address) ?? []).filter((time) => now - time < 30 * 60_000)
-  attempts.set(address, recent)
-  if (recent.length >= 3) return true
-  recent.push(now)
-  return false
-}
 
 export async function POST(request: Request) {
   if (!isSameOrigin(request)) return Response.json({ error: "请求来源校验失败" }, { status: 403 })
@@ -30,14 +16,21 @@ export async function POST(request: Request) {
     return Response.json({ error: "友链申请内容过大" }, { status: 413 })
   }
   const address = clientAddress(request)
-  if (isRateLimited(address)) {
-    return Response.json({ error: "提交太频繁，请半小时后再试" }, { status: 429 })
+  const limit = consumeRateLimit({ action: "friend-application", actor: address, limit: 3, windowMs: 30 * 60_000 })
+  if (!limit.allowed) {
+    return Response.json({ error: "提交太频繁，请稍后再试" }, {
+      status: 429,
+      headers: { "Retry-After": String(limit.retryAfterSeconds) },
+    })
   }
 
   try {
     const input = normalizeFriendApplication(await request.json())
     const review = await reviewFriendCandidate(input)
     const application = saveFriendApplication(input, address, review)
+    if (application.status === "approved") {
+      expirePublicCache([publicCacheTags.friends], ["/friends"])
+    }
     return Response.json({
       application: {
         id: application.id,

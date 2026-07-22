@@ -4,6 +4,7 @@ import { Code2, Mail } from "lucide-react"
 
 import { SiteFrame } from "@/components/site-frame"
 import { ManagedPageBody } from "@/components/managed-page-body"
+import { Highlighter } from "@/components/ui/highlighter"
 import { getPageContent } from "@/lib/page-content"
 import { siteConfig } from "@/lib/site"
 
@@ -26,7 +27,7 @@ export default async function AboutMePage() {
       <div className="about-layout migrated-about">
         <article className="about-story" aria-labelledby="about-story-title">
           <p className="section-kicker">ABOUT THIS SITE</p>
-          <h2 id="about-story-title">记录技术实践，也记录真实使用体验。</h2>
+          <h2 id="about-story-title">记录技术实践，也记录<Highlighter>真实使用体验</Highlighter>。</h2>
           <p>
             这里主要整理自建服务、服务器部署、VPS 测评和实际使用中遇到的问题。
             也会记录数字生活里值得留下的片段，以及亲自用过之后的真实感受。

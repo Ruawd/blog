@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import {
   ArrowDown,
   ArrowUp,
@@ -9,11 +9,13 @@ import {
   ImageOff,
   ImagePlus,
   Images,
+  GripVertical,
   LoaderCircle,
   RefreshCw,
   Ruler,
   Save,
   Trash2,
+  Upload,
 } from "lucide-react"
 
 import { ResilientImage } from "@/components/resilient-image"
@@ -46,6 +48,8 @@ function toDraft(photo: AlbumPhoto): PhotoDraft {
     caption: photo.caption,
     width: photo.width,
     height: photo.height,
+    takenAt: photo.takenAt || "",
+    originalName: photo.originalName || "",
   }
 }
 
@@ -68,12 +72,58 @@ function sourceLabel(source: string): string {
   }
 }
 
+async function readExifTakenAt(file: File): Promise<string> {
+  if (file.type !== "image/jpeg") return ""
+  try {
+    const view = new DataView(await file.arrayBuffer())
+    const ascii = (offset: number, length: number) => Array.from({ length }, (_, index) => String.fromCharCode(view.getUint8(offset + index))).join("")
+    if (view.getUint16(0, false) !== 0xffd8) return ""
+    let offset = 2
+    while (offset + 4 < view.byteLength) {
+      const marker = view.getUint16(offset, false)
+      const length = view.getUint16(offset + 2, false)
+      if (marker === 0xffe1 && ascii(offset + 4, 6) === "Exif\0\0") {
+        const tiff = offset + 10
+        const byteOrder = view.getUint16(tiff, false)
+        const little = byteOrder === 0x4949
+        if (!little && byteOrder !== 0x4d4d) return ""
+        const u16 = (position: number) => view.getUint16(position, little)
+        const u32 = (position: number) => view.getUint32(position, little)
+        const findTag = (ifd: number, tag: number): { type: number; count: number; valueOffset: number } | null => {
+          const entries = u16(ifd)
+          for (let index = 0; index < entries; index += 1) {
+            const entry = ifd + 2 + index * 12
+            if (u16(entry) === tag) return { type: u16(entry + 2), count: u32(entry + 4), valueOffset: entry + 8 }
+          }
+          return null
+        }
+        const ifd0 = tiff + u32(tiff + 4)
+        const exifPointer = findTag(ifd0, 0x8769)
+        if (!exifPointer) return ""
+        const exifIfd = tiff + u32(exifPointer.valueOffset)
+        const dateTag = findTag(exifIfd, 0x9003) || findTag(exifIfd, 0x9004)
+        if (!dateTag || dateTag.type !== 2 || dateTag.count < 16) return ""
+        const value = dateTag.count <= 4 ? dateTag.valueOffset : tiff + u32(dateTag.valueOffset)
+        const raw = ascii(value, Math.min(dateTag.count, 32)).replace(/\0.*$/, "")
+        const match = raw.match(/^(\d{4}):(\d{2}):(\d{2}) (\d{2}):(\d{2})/)
+        return match ? `${match[1]}-${match[2]}-${match[3]}T${match[4]}:${match[5]}` : ""
+      }
+      if (length < 2) break
+      offset += 2 + length
+    }
+  } catch {}
+  return ""
+}
+
 export function AdminAlbumEditor() {
+  const uploadRef = useRef<HTMLInputElement>(null)
   const [photos, setPhotos] = useState<PhotoDraft[]>([])
   const [activeId, setActiveId] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [detecting, setDetecting] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [draggingId, setDraggingId] = useState("")
   const [dirty, setDirty] = useState(false)
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
@@ -153,6 +203,8 @@ export function AdminAlbumEditor() {
       caption: "可爱流萤",
       width: 1600,
       height: 1200,
+      takenAt: "",
+      originalName: "",
     }
     setPhotos((current) => [...current, photo])
     setActiveId(photo.clientId)
@@ -177,6 +229,65 @@ export function AdminAlbumEditor() {
       return next
     })
     markChanged()
+  }
+
+  function movePhotoTo(sourceId: string, targetId: string) {
+    if (!sourceId || sourceId === targetId) return
+    setPhotos((current) => {
+      const sourceIndex = current.findIndex((photo) => photo.clientId === sourceId)
+      const targetIndex = current.findIndex((photo) => photo.clientId === targetId)
+      if (sourceIndex < 0 || targetIndex < 0) return current
+      const next = [...current]
+      const [moved] = next.splice(sourceIndex, 1)
+      next.splice(targetIndex, 0, moved)
+      return next
+    })
+    setActiveId(sourceId)
+    markChanged()
+  }
+
+  async function uploadPhoto(file: File) {
+    if (uploading) return
+    setUploading(true)
+    setError("")
+    setMessage("")
+    const objectUrl = URL.createObjectURL(file)
+    try {
+      const [dimensions, takenAt] = await Promise.all([new Promise<{ width: number; height: number }>((resolve, reject) => {
+        const image = new window.Image()
+        image.onload = () => image.naturalWidth && image.naturalHeight
+          ? resolve({ width: image.naturalWidth, height: image.naturalHeight })
+          : reject(new Error("无法读取图片尺寸"))
+        image.onerror = () => reject(new Error("无法读取这个图片文件"))
+        image.src = objectUrl
+      }), readExifTakenAt(file)])
+      const form = new FormData()
+      form.set("file", file)
+      const data = await readJson<{ upload: { src: string } }>(await fetch("/api/admin/album/upload", {
+        method: "POST",
+        body: form,
+      }))
+      const displayName = file.name.replace(/\.[^.]+$/, "").slice(0, 100) || "相册图片"
+      const photo: PhotoDraft = {
+        clientId: `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+        src: data.upload.src,
+        alt: displayName,
+        caption: displayName,
+        originalName: file.name.slice(0, 240),
+        takenAt,
+        ...dimensions,
+      }
+      setPhotos((current) => [...current, photo])
+      setActiveId(photo.clientId)
+      markChanged()
+      setMessage(`图片已上传并读取尺寸：${dimensions.width} × ${dimensions.height}，请保存相册列表`)
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "图片上传失败")
+    } finally {
+      URL.revokeObjectURL(objectUrl)
+      setUploading(false)
+      if (uploadRef.current) uploadRef.current.value = ""
+    }
   }
 
   async function detectDimensions() {
@@ -219,12 +330,14 @@ export function AdminAlbumEditor() {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          photos: photos.map(({ src, alt, caption, width, height }) => ({
+          photos: photos.map(({ src, alt, caption, width, height, takenAt, originalName }) => ({
             src,
             alt,
             caption,
             width,
             height,
+            takenAt,
+            originalName,
           })),
         }),
       }))
@@ -265,6 +378,14 @@ export function AdminAlbumEditor() {
           <button type="button" onClick={addPhoto}>
             <ImagePlus aria-hidden="true" />添加图片
           </button>
+          <label className="admin-album-upload">
+            {uploading ? <LoaderCircle className="spin" aria-hidden="true" /> : <Upload aria-hidden="true" />}
+            {uploading ? "上传中" : "上传本地图片"}
+            <input ref={uploadRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" disabled={uploading} onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) void uploadPhoto(file)
+            }} />
+          </label>
         </div>
       </header>
 
@@ -286,6 +407,12 @@ export function AdminAlbumEditor() {
                 <button
                   type="button"
                   className={photo.clientId === activeId ? "is-active" : ""}
+                  draggable
+                  aria-grabbed={draggingId === photo.clientId}
+                  onDragStart={(event) => { setDraggingId(photo.clientId); event.dataTransfer.effectAllowed = "move" }}
+                  onDragEnd={() => setDraggingId("")}
+                  onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move" }}
+                  onDrop={(event) => { event.preventDefault(); movePhotoTo(draggingId, photo.clientId); setDraggingId("") }}
                   onClick={() => { setActiveId(photo.clientId); setError(""); setMessage("") }}
                   key={photo.clientId}
                 >
@@ -300,7 +427,7 @@ export function AdminAlbumEditor() {
                     <strong>{photo.caption || photo.alt || "未命名图片"}</strong>
                     <small>{photo.width} × {photo.height} · {sourceLabel(photo.src)}</small>
                   </span>
-                  <b>{String(index + 1).padStart(2, "0")}</b>
+                  <b><GripVertical aria-hidden="true" />{String(index + 1).padStart(2, "0")}</b>
                 </button>
               ))}
             </div>
@@ -337,6 +464,8 @@ export function AdminAlbumEditor() {
                   <div><dt>类型</dt><dd>{orientation}</dd></div>
                   <div><dt>尺寸</dt><dd>{active.width} × {active.height}</dd></div>
                   <div><dt>来源</dt><dd>{sourceLabel(active.src)}</dd></div>
+                  <div><dt>拍摄时间</dt><dd>{active.takenAt ? active.takenAt.replace("T", " ") : "未读取"}</dd></div>
+                  <div><dt>原始文件</dt><dd title={active.originalName}>{active.originalName || "未知"}</dd></div>
                 </dl>
               </section>
 
@@ -410,6 +539,17 @@ export function AdminAlbumEditor() {
                     {detecting ? <LoaderCircle className="spin" aria-hidden="true" /> : <Ruler aria-hidden="true" />}
                     {detecting ? "读取中" : "自动读取尺寸"}
                   </button>
+                </div>
+
+                <div className="admin-field-grid">
+                  <div className="admin-field">
+                    <label htmlFor="album-photo-taken-at">拍摄时间（EXIF）</label>
+                    <input id="album-photo-taken-at" type="datetime-local" value={active.takenAt} onChange={(event) => update("takenAt", event.target.value)} />
+                  </div>
+                  <div className="admin-field">
+                    <label htmlFor="album-photo-original-name">原始文件名</label>
+                    <input id="album-photo-original-name" value={active.originalName} onChange={(event) => update("originalName", event.target.value)} maxLength={240} />
+                  </div>
                 </div>
 
                 <div className="admin-album-actions">

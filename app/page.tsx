@@ -17,6 +17,9 @@ import { HomeParticleBackground } from "@/components/home-background-switcher"
 import { ManagedPageBody } from "@/components/managed-page-body"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
+import { MagicCard } from "@/components/ui/magic-card"
+import { Marquee } from "@/components/ui/marquee"
+import { listPublishedBlogPosts } from "@/lib/blog-repository"
 import { getPageContent } from "@/lib/page-content"
 
 export const dynamic = "force-dynamic"
@@ -81,7 +84,7 @@ const featureLinks = [
 ] as const
 
 export default async function Home() {
-  const page = await getPageContent("home")
+  const [page, posts] = await Promise.all([getPageContent("home"), listPublishedBlogPosts()])
   return (
     <div className="site-shell home-shell" data-home-layout="two-x-inspired-v5">
       <a className="skip-link" href="#main">跳到主要内容</a>
@@ -119,6 +122,21 @@ export default async function Home() {
 
         <ManagedPageBody content={page.body} />
 
+        {posts.length ? (
+          <section className="home-recent" aria-labelledby="home-recent-title">
+            <header><p>LATEST NOTES</p><h2 id="home-recent-title">最近更新</h2></header>
+            <Marquee>
+              {posts.slice(0, 8).map((post) => (
+                <Link href={`/blog/${post.slug}`} key={post.slug}>
+                  <small>{post.category} · {post.published}</small>
+                  <strong>{post.title}</strong>
+                  <ArrowRight aria-hidden="true" />
+                </Link>
+              ))}
+            </Marquee>
+          </section>
+        ) : null}
+
         <section className="home-explore" id="home-explore" aria-labelledby="home-explore-title">
           <header className="home-explore-heading">
             <p>EXPLORE</p>
@@ -130,21 +148,22 @@ export default async function Home() {
               const Icon = item.icon
 
               return (
-                <Link
-                  className={"featured" in item && item.featured ? "home-feature-card is-featured" : "home-feature-card"}
-                  href={item.href}
-                  key={item.href}
-                >
-                  <Icon className="home-feature-icon" aria-hidden="true" />
-                  <div>
-                    <h3>{item.label}</h3>
-                    <p>{item.description}</p>
-                  </div>
-                  <span className="home-feature-action">
-                    {item.action}
-                    <ArrowRight aria-hidden="true" />
-                  </span>
-                </Link>
+                <MagicCard className={"featured" in item && item.featured ? "home-feature-magic is-featured" : "home-feature-magic"} key={item.href}>
+                  <Link
+                    className={"featured" in item && item.featured ? "home-feature-card is-featured" : "home-feature-card"}
+                    href={item.href}
+                  >
+                    <Icon className="home-feature-icon" aria-hidden="true" />
+                    <div>
+                      <h3>{item.label}</h3>
+                      <p>{item.description}</p>
+                    </div>
+                    <span className="home-feature-action">
+                      {item.action}
+                      <ArrowRight aria-hidden="true" />
+                    </span>
+                  </Link>
+                </MagicCard>
               )
             })}
           </div>

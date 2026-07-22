@@ -1,5 +1,6 @@
 import { isSameOrigin, requireAdminApi } from "@/lib/admin-session"
 import { moveFriendLink } from "@/lib/friend-repository"
+import { expirePublicCache, publicCacheTags } from "@/lib/public-cache"
 
 export const dynamic = "force-dynamic"
 
@@ -12,7 +13,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (!Number.isSafeInteger(id) || id < 1) throw new Error("友链编号不正确")
     const body = await request.json() as Record<string, unknown>
     if (body.direction !== "up" && body.direction !== "down") throw new Error("移动方向不正确")
-    return Response.json({ friends: moveFriendLink(id, body.direction) })
+    const friends = moveFriendLink(id, body.direction)
+    expirePublicCache([publicCacheTags.friends], ["/friends"])
+    return Response.json({ friends })
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "友链排序失败" }, { status: 400 })
   }

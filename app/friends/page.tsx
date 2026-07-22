@@ -5,7 +5,7 @@ import { FriendApplicationForm } from "@/components/friend-application-form"
 import { ResilientImage } from "@/components/resilient-image"
 import { SiteFrame } from "@/components/site-frame"
 import { ManagedPageBody } from "@/components/managed-page-body"
-import { listPublicFriendLinks } from "@/lib/friend-repository"
+import { listCachedPublicFriendLinks } from "@/lib/friend-repository"
 import { getPageContent } from "@/lib/page-content"
 import { siteConfig } from "@/lib/site"
 
@@ -18,7 +18,7 @@ export const dynamic = "force-dynamic"
 
 export default async function FriendsPage() {
   const page = await getPageContent("friends")
-  const friends = listPublicFriendLinks()
+  const friends = await listCachedPublicFriendLinks()
   return (
     <SiteFrame
       eyebrow={page.eyebrow}

@@ -1,5 +1,6 @@
 import { isSameOrigin, requireAdminApi } from "@/lib/admin-session"
 import { listAlbumPhotos, saveAlbumPhotos } from "@/lib/album-repository"
+import { expirePublicCache, publicCacheTags } from "@/lib/public-cache"
 
 export const dynamic = "force-dynamic"
 
@@ -26,7 +27,9 @@ export async function PUT(request: Request) {
 
   try {
     const body = await request.json() as Record<string, unknown>
-    return Response.json({ photos: saveAlbumPhotos(body.photos, auth.user.username) })
+    const photos = saveAlbumPhotos(body.photos, auth.user.username)
+    expirePublicCache([publicCacheTags.album], ["/mine/album"])
+    return Response.json({ photos })
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "相册保存失败" },

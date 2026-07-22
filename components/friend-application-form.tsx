@@ -14,6 +14,7 @@ import {
 } from "lucide-react"
 
 import { ShimmerButton } from "@/components/ui/shimmer-button"
+import { ConfettiBurst } from "@/components/ui/confetti-burst"
 
 type FormState = {
   name: string
@@ -50,6 +51,7 @@ export function FriendApplicationForm({ targets }: { targets: readonly string[] 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState("")
   const [result, setResult] = useState<ApplicationResult | null>(null)
+  const [celebration, setCelebration] = useState(0)
 
   function update<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }))
@@ -71,6 +73,7 @@ export function FriendApplicationForm({ targets }: { targets: readonly string[] 
       }))
       setResult(data.application)
       if (data.application.status === "approved") {
+        setCelebration((current) => current + 1)
         setForm(initialForm)
         router.refresh()
       }
@@ -83,6 +86,7 @@ export function FriendApplicationForm({ targets }: { targets: readonly string[] 
 
   return (
     <section className="friend-application" id="friend-application" aria-labelledby="friend-application-title">
+      <ConfettiBurst burstKey={celebration} />
       <header>
         <div>
           <p className="section-kicker">AUTOMATIC REVIEW</p>

@@ -5,7 +5,7 @@ export function HomeParticleBackground() {
     <div className="home-background home-particle-background" aria-hidden="true">
       <Particles
         className="home-background-layer"
-        quantity={96}
+        quantity={72}
         color="#111111"
         ease={72}
         staticity={58}

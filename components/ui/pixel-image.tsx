@@ -97,7 +97,6 @@ export function PixelImage({
         fill
         priority={priority}
         sizes="(max-width: 640px) 198px, 248px"
-        unoptimized
         draggable={false}
         onLoad={markReady}
         onError={markReady}

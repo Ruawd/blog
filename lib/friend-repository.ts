@@ -1,8 +1,10 @@
 import { createHmac } from "node:crypto"
 import type { DatabaseSync } from "node:sqlite"
+import { unstable_cache } from "next/cache"
 
 import { getDatabase } from "@/db"
 import type { FriendReviewResult } from "@/lib/friend-review"
+import { publicCacheTags } from "@/lib/public-cache"
 import { friends as defaultFriends } from "@/lib/migrated-content"
 import { normalizePublicHttpsUrl } from "@/lib/safe-remote-resource"
 
@@ -210,6 +212,16 @@ export function listPublicFriendLinks(): PublicFriendLink[] {
       description: friend.description,
     }
   })
+}
+
+const listCachedPublicFriendLinksInternal = unstable_cache(
+  async () => listPublicFriendLinks(),
+  ["public-friend-links-v1"],
+  { revalidate: 300, tags: [publicCacheTags.friends] },
+)
+
+export async function listCachedPublicFriendLinks(): Promise<PublicFriendLink[]> {
+  return listCachedPublicFriendLinksInternal()
 }
 
 export function listAdminFriendLinks(): FriendLink[] {

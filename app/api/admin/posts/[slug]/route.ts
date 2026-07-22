@@ -1,5 +1,6 @@
 import { isSameOrigin, requireAdminApi } from "@/lib/admin-session"
-import { getEditableArticle, normalizeArticleInput, saveArticle } from "@/lib/blog-repository"
+import { getEditableArticle, getPostAutosave, normalizeArticleInput, saveArticle } from "@/lib/blog-repository"
+import { expirePublicCache, publicCacheTags } from "@/lib/public-cache"
 
 export const dynamic = "force-dynamic"
 
@@ -15,7 +16,7 @@ export async function GET(_request: Request, { params }: RouteContext) {
     const { slug } = await params
     const post = await getEditableArticle(slug)
     if (!post) return Response.json({ error: "没有找到这篇文章" }, { status: 404 })
-    return Response.json({ post })
+    return Response.json({ post, autosave: post.protected ? null : getPostAutosave(slug) })
   } catch {
     return Response.json({ error: "文章暂时无法读取，请稍后重试" }, { status: 500 })
   }
@@ -44,7 +45,9 @@ export async function PUT(request: Request, { params }: RouteContext) {
       return Response.json({ error: "密码保护文章不能直接取消保护" }, { status: 409 })
     }
 
-    return Response.json({ post: await saveArticle(input, auth.user.username) })
+    const post = await saveArticle(input, auth.user.username)
+    expirePublicCache([publicCacheTags.blog], ["/", "/blog", `/blog/${post.slug}`])
+    return Response.json({ post })
   } catch (error) {
     const message = error instanceof Error ? error.message : "文章保存失败"
     return Response.json({ error: message }, { status: 400 })

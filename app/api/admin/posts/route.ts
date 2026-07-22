@@ -5,6 +5,7 @@ import {
   normalizeArticleInput,
   saveArticle,
 } from "@/lib/blog-repository"
+import { expirePublicCache, publicCacheTags } from "@/lib/public-cache"
 
 export const dynamic = "force-dynamic"
 
@@ -35,10 +36,9 @@ export async function POST(request: Request) {
       return Response.json({ error: "这个链接标识已经被使用" }, { status: 409 })
     }
 
-    return Response.json(
-      { post: await saveArticle(input, auth.user.username) },
-      { status: 201 },
-    )
+    const post = await saveArticle(input, auth.user.username)
+    expirePublicCache([publicCacheTags.blog], ["/", "/blog", `/blog/${post.slug}`])
+    return Response.json({ post }, { status: 201 })
   } catch (error) {
     const message = error instanceof Error ? error.message : "文章保存失败"
     return Response.json({ error: message }, { status: 400 })

@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react"
 import { ChevronDown, Menu, X } from "lucide-react"
 
 import { aboutItems, mineItems, navItems, siteConfig } from "@/lib/site"
+import { SiteSearch } from "@/components/site-search"
+import { AnimatedThemeToggler } from "@/components/ui/animated-theme-toggler"
 
 type SiteHeaderProps = {
   showBrand?: boolean
@@ -109,7 +111,6 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
             width={34}
             height={34}
             priority
-            unoptimized
           />
           <span>{siteConfig.name}</span>
         </Link>
@@ -184,6 +185,11 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
 
         <Link href="/links">链接</Link>
       </nav>
+
+      <div className="header-tools">
+        <AnimatedThemeToggler />
+        <SiteSearch />
+      </div>
 
       <button
         ref={menuTriggerRef}

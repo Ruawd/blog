@@ -1,7 +1,9 @@
 import type { DatabaseSync } from "node:sqlite"
+import { unstable_cache } from "next/cache"
 
 import { getDatabase } from "@/db"
 import { albumPhotos as defaultAlbumPhotos } from "@/lib/migrated-content"
+import { publicCacheTags } from "@/lib/public-cache"
 
 export type AlbumPhoto = {
   id: number
@@ -10,6 +12,8 @@ export type AlbumPhoto = {
   caption: string
   width: number
   height: number
+  takenAt: string
+  originalName: string
   sortOrder: number
   updatedAt: string
 }
@@ -17,6 +21,7 @@ export type AlbumPhoto = {
 export type AlbumPhotoInput = Pick<
   AlbumPhoto,
   "src" | "alt" | "caption" | "width" | "height"
+  | "takenAt" | "originalName"
 >
 
 type AlbumPhotoRow = {
@@ -26,6 +31,8 @@ type AlbumPhotoRow = {
   caption: string
   width: number
   height: number
+  takenAt: string
+  originalName: string
   sortOrder: number
   updatedAt: string
 }
@@ -72,6 +79,8 @@ function ensureAlbumSchema(): DatabaseSync {
       caption TEXT NOT NULL DEFAULT '',
       width INTEGER NOT NULL CHECK (width > 0),
       height INTEGER NOT NULL CHECK (height > 0),
+      taken_at TEXT NOT NULL DEFAULT '',
+      original_name TEXT NOT NULL DEFAULT '',
       sort_order INTEGER NOT NULL,
       updated_by TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -80,6 +89,11 @@ function ensureAlbumSchema(): DatabaseSync {
     CREATE UNIQUE INDEX IF NOT EXISTS album_photos_sort_order_unique
       ON album_photos (sort_order);
   `)
+  const columns = new Set(
+    (db.prepare("PRAGMA table_info(album_photos)").all() as unknown as Array<{ name: string }>).map((column) => column.name),
+  )
+  if (!columns.has("taken_at")) db.exec("ALTER TABLE album_photos ADD COLUMN taken_at TEXT NOT NULL DEFAULT ''")
+  if (!columns.has("original_name")) db.exec("ALTER TABLE album_photos ADD COLUMN original_name TEXT NOT NULL DEFAULT ''")
   if (!existed) seedDefaultPhotos(db)
   schemaReady = true
   return db
@@ -138,6 +152,8 @@ export function normalizeAlbumPhotos(value: unknown): AlbumPhotoInput[] {
       caption: normalizeText(input.caption, `第 ${index + 1} 张图片的图注`, 100),
       width: normalizeDimension(input.width, `第 ${index + 1} 张图片的宽度`),
       height: normalizeDimension(input.height, `第 ${index + 1} 张图片的高度`),
+      takenAt: normalizeText(input.takenAt, `第 ${index + 1} 张图片的拍摄时间`, 32),
+      originalName: normalizeText(input.originalName, `第 ${index + 1} 张图片的原始文件名`, 240),
     }
   })
 }
@@ -151,6 +167,8 @@ export function listAlbumPhotos(): AlbumPhoto[] {
       caption,
       width,
       height,
+      taken_at AS takenAt,
+      original_name AS originalName,
       sort_order AS sortOrder,
       updated_at AS updatedAt
     FROM album_photos
@@ -159,13 +177,23 @@ export function listAlbumPhotos(): AlbumPhoto[] {
   return rows.map((row) => ({ ...row }))
 }
 
+const listCachedAlbumPhotosInternal = unstable_cache(
+  async () => listAlbumPhotos(),
+  ["public-album-photos-v1"],
+  { revalidate: 300, tags: [publicCacheTags.album] },
+)
+
+export async function listCachedAlbumPhotos(): Promise<AlbumPhoto[]> {
+  return listCachedAlbumPhotosInternal()
+}
+
 export function saveAlbumPhotos(value: unknown, username: string): AlbumPhoto[] {
   const photos = normalizeAlbumPhotos(value)
   const db = ensureAlbumSchema()
   const insert = db.prepare(`
     INSERT INTO album_photos (
-      src, alt, caption, width, height, sort_order, updated_by, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      src, alt, caption, width, height, taken_at, original_name, sort_order, updated_by, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `)
   const now = new Date().toISOString()
 
@@ -179,6 +207,8 @@ export function saveAlbumPhotos(value: unknown, username: string): AlbumPhoto[] 
         photo.caption,
         photo.width,
         photo.height,
+        photo.takenAt,
+        photo.originalName,
         index,
         username,
         now,

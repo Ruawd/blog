@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { AlbumGallery } from "@/components/album-gallery"
 import { SiteFrame } from "@/components/site-frame"
 import { ManagedPageBody } from "@/components/managed-page-body"
-import { listAlbumPhotos } from "@/lib/album-repository"
+import { listCachedAlbumPhotos } from "@/lib/album-repository"
 import { getPageContent } from "@/lib/page-content"
 
 export const metadata: Metadata = {
@@ -15,7 +15,7 @@ export const dynamic = "force-dynamic"
 
 export default async function AlbumPage() {
   const page = await getPageContent("album")
-  const photos = listAlbumPhotos()
+  const photos = await listCachedAlbumPhotos()
   return (
     <SiteFrame
       eyebrow={page.eyebrow}

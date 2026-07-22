@@ -1,6 +1,8 @@
 import type { DatabaseSync } from "node:sqlite"
+import { unstable_cache } from "next/cache"
 
 import { getDatabase } from "@/db"
+import { publicCacheTags } from "@/lib/public-cache"
 
 export const pageContentDefaults = {
   home: { path: "/", label: "主页", eyebrow: "HOME", title: "Ruawd", description: "在技术与生活之间，慢慢记录。", body: "" },
@@ -68,7 +70,7 @@ export function normalizePageContent(value: unknown): Pick<PageContent, "key" | 
   return { key, eyebrow: field("eyebrow"), title, description: field("description"), body }
 }
 
-export async function getPageContent(key: PageContentKey): Promise<PageContent> {
+async function readPageContent(key: PageContentKey): Promise<PageContent> {
   const fallback = pageContentDefaults[key]
   const row = ensurePageSchema().prepare(`
     SELECT key, eyebrow, title, description, body, updated_at AS updatedAt
@@ -77,6 +79,16 @@ export async function getPageContent(key: PageContentKey): Promise<PageContent> 
   return row
     ? { ...row, path: fallback.path, label: fallback.label }
     : { key, ...fallback, updatedAt: null }
+}
+
+const getCachedPageContent = unstable_cache(
+  readPageContent,
+  ["managed-page-content-v1"],
+  { revalidate: 300, tags: [publicCacheTags.pages] },
+)
+
+export async function getPageContent(key: PageContentKey): Promise<PageContent> {
+  return getCachedPageContent(key)
 }
 
 export async function listPageContents(): Promise<PageContent[]> {
@@ -97,5 +109,5 @@ export async function savePageContent(value: unknown, username: string): Promise
       updated_by = excluded.updated_by,
       updated_at = excluded.updated_at
   `).run(input.key, input.eyebrow, input.title, input.description, input.body, username, now)
-  return getPageContent(input.key)
+  return readPageContent(input.key)
 }

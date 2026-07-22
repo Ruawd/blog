@@ -1,4 +1,5 @@
 import type { DatabaseSync } from "node:sqlite"
+import { unstable_cache } from "next/cache"
 
 import { getDatabase } from "@/db"
 import type { ArticleInput, ArticleStatus, ArticleSummary, EditableArticle } from "@/lib/blog-types"
@@ -8,6 +9,7 @@ import {
   type BlogPost,
   type EncryptedBlogContent,
 } from "@/lib/blog-posts.generated"
+import { publicCacheTags } from "@/lib/public-cache"
 
 type StoredPostRow = {
   slug: string
@@ -20,11 +22,27 @@ type StoredPostRow = {
   sourceLink: string | null
   status: ArticleStatus
   publishedAt: string
+  scheduledAt: string | null
   readingMinutes: number
   protected: number
   encryptedJson: string | null
   passwordHint: string | null
   createdAt: string
+  updatedAt: string
+}
+
+export type PostRevisionSummary = {
+  id: number
+  slug: string
+  title: string
+  status: ArticleStatus
+  updatedBy: string
+  createdAt: string
+}
+
+export type PostAutosave = {
+  slug: string
+  article: EditableArticle
   updatedAt: string
 }
 
@@ -42,6 +60,7 @@ const postSelect = `
     source_link AS sourceLink,
     status,
     published_at AS publishedAt,
+    scheduled_at AS scheduledAt,
     reading_minutes AS readingMinutes,
     protected,
     encrypted_json AS encryptedJson,
@@ -67,6 +86,7 @@ export function ensureBlogSchema(): DatabaseSync {
         source_link TEXT,
         status TEXT NOT NULL DEFAULT 'draft',
         published_at TEXT NOT NULL,
+        scheduled_at TEXT,
         reading_minutes INTEGER NOT NULL DEFAULT 1,
         protected INTEGER NOT NULL DEFAULT 0,
         encrypted_json TEXT,
@@ -78,6 +98,21 @@ export function ensureBlogSchema(): DatabaseSync {
       );
       CREATE UNIQUE INDEX IF NOT EXISTS posts_slug_unique ON posts (slug);
       CREATE INDEX IF NOT EXISTS posts_status_published_idx ON posts (status, published_at);
+      CREATE TABLE IF NOT EXISTS post_revisions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        slug TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL,
+        updated_by TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
+      CREATE INDEX IF NOT EXISTS post_revisions_slug_created_idx
+        ON post_revisions (slug, created_at DESC, id DESC);
+      CREATE TABLE IF NOT EXISTS post_autosaves (
+        slug TEXT PRIMARY KEY,
+        snapshot_json TEXT NOT NULL,
+        updated_by TEXT NOT NULL,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      );
     `)
 
     const columns = new Set(
@@ -92,6 +127,9 @@ export function ensureBlogSchema(): DatabaseSync {
     }
     if (!columns.has("password_hint")) {
       db.exec("ALTER TABLE posts ADD COLUMN password_hint TEXT")
+    }
+    if (!columns.has("scheduled_at")) {
+      db.exec("ALTER TABLE posts ADD COLUMN scheduled_at TEXT")
     }
     schemaReady = true
   }
@@ -157,6 +195,7 @@ function storedToEditable(row: StoredPostRow): EditableArticle {
     sourceLink: row.sourceLink ?? "",
     status: row.status,
     published: row.publishedAt,
+    scheduledAt: row.scheduledAt ?? "",
     updated: row.updatedAt.slice(0, 10),
     readingMinutes: row.readingMinutes,
     source: "database",
@@ -179,6 +218,7 @@ function staticToEditable(post: BlogPost): EditableArticle {
     sourceLink: post.sourceLink ?? "",
     status: "published",
     published: post.published,
+    scheduledAt: "",
     updated: post.updated ?? post.published,
     readingMinutes: post.readingMinutes,
     source: "static",
@@ -218,6 +258,7 @@ function editableToSummary(post: EditableArticle): ArticleSummary {
     image: post.image,
     status: post.status,
     published: post.published,
+    scheduledAt: post.scheduledAt,
     updated: post.updated,
     readingMinutes: post.readingMinutes,
     source: post.source,
@@ -238,11 +279,18 @@ async function getStoredPost(slug: string): Promise<StoredPostRow | null> {
   return row ?? null
 }
 
-export async function listPublishedBlogPosts(): Promise<BlogPost[]> {
+function storedPostIsPublic(post: StoredPostRow): boolean {
+  if (post.status === "published") return true
+  if (post.status !== "scheduled" || !post.scheduledAt) return false
+  const timestamp = Date.parse(`${post.scheduledAt}:00+08:00`)
+  return Number.isFinite(timestamp) && timestamp <= Date.now()
+}
+
+async function listPublishedBlogPostsUncached(): Promise<BlogPost[]> {
   const merged = new Map(blogPosts.map((post) => [post.slug, post]))
 
   for (const stored of await listStoredPosts()) {
-    if (stored.status === "draft") {
+    if (!storedPostIsPublic(stored)) {
       merged.delete(stored.slug)
       continue
     }
@@ -252,10 +300,30 @@ export async function listPublishedBlogPosts(): Promise<BlogPost[]> {
   return [...merged.values()].sort((a, b) => b.published.localeCompare(a.published))
 }
 
-export async function getPublishedBlogPost(slug: string): Promise<BlogPost | null> {
+async function getPublishedBlogPostUncached(slug: string): Promise<BlogPost | null> {
   const stored = await getStoredPost(slug)
-  if (stored) return stored.status === "published" ? editableToBlogPost(storedToEditable(stored)) : null
+  if (stored) return storedPostIsPublic(stored) ? editableToBlogPost(storedToEditable(stored)) : null
   return getBlogPost(slug) ?? null
+}
+
+const listPublishedBlogPostsCached = unstable_cache(
+  listPublishedBlogPostsUncached,
+  ["published-blog-posts-v1"],
+  { revalidate: 300, tags: [publicCacheTags.blog] },
+)
+
+const getPublishedBlogPostCached = unstable_cache(
+  getPublishedBlogPostUncached,
+  ["published-blog-post-v1"],
+  { revalidate: 300, tags: [publicCacheTags.blog] },
+)
+
+export async function listPublishedBlogPosts(): Promise<BlogPost[]> {
+  return listPublishedBlogPostsCached()
+}
+
+export async function getPublishedBlogPost(slug: string): Promise<BlogPost | null> {
+  return getPublishedBlogPostCached(slug)
 }
 
 export async function listEditableArticleSummaries(): Promise<ArticleSummary[]> {
@@ -292,7 +360,11 @@ export function normalizeArticleInput(value: unknown): ArticleInput {
   const slug = string("slug").toLowerCase()
   const title = string("title")
   const published = string("published")
-  const status = input.status === "published" ? "published" : "draft"
+  const status: ArticleStatus = input.status === "published"
+    ? "published"
+    : input.status === "scheduled"
+      ? "scheduled"
+      : "draft"
   const protectedPost = input.protected === true
   const tags = Array.isArray(input.tags)
     ? [...new Set(input.tags.filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim()).filter(Boolean))]
@@ -315,6 +387,10 @@ export function normalizeArticleInput(value: unknown): ArticleInput {
   }
   if (!title) throw new Error("请填写文章标题")
   if (!/^\d{4}-\d{2}-\d{2}$/.test(published)) throw new Error("发布日期格式不正确")
+  const scheduledAt = string("scheduledAt")
+  if (status === "scheduled" && !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(scheduledAt)) {
+    throw new Error("定时发布时间格式不正确")
+  }
   if (slug.length > 120) throw new Error("链接标识不能超过 120 个字符")
   if (title.length > 180) throw new Error("文章标题不能超过 180 个字符")
   if (string("description").length > 500) throw new Error("文章摘要不能超过 500 个字符")
@@ -341,6 +417,7 @@ export function normalizeArticleInput(value: unknown): ArticleInput {
     sourceLink: validateOptionalUrl("sourceLink"),
     status,
     published,
+    scheduledAt: status === "scheduled" ? scheduledAt : "",
     protected: protectedPost,
     passwordHint: string("passwordHint").slice(0, 200),
     readingMinutes,
@@ -353,17 +430,60 @@ export async function articleExists(slug: string): Promise<boolean> {
   return Boolean(await getStoredPost(slug))
 }
 
-export async function saveArticle(input: ArticleInput, email: string): Promise<EditableArticle> {
+function editableToInput(article: EditableArticle): ArticleInput {
+  return {
+    slug: article.slug,
+    title: article.title,
+    description: article.description,
+    content: article.protected ? "" : article.content,
+    category: article.category,
+    tags: article.tags,
+    image: article.image,
+    sourceLink: article.sourceLink,
+    status: article.status,
+    published: article.published,
+    scheduledAt: article.scheduledAt,
+    protected: article.protected,
+    passwordHint: article.passwordHint,
+    readingMinutes: article.readingMinutes,
+    encrypted: article.encrypted,
+  }
+}
+
+function recordRevision(db: DatabaseSync, article: EditableArticle, username: string): void {
+  db.prepare(`
+    INSERT INTO post_revisions (slug, snapshot_json, updated_by, created_at)
+    VALUES (?, ?, ?, ?)
+  `).run(article.slug, JSON.stringify(editableToInput(article)), username, new Date().toISOString())
+  db.prepare(`
+    DELETE FROM post_revisions
+    WHERE slug = ? AND id NOT IN (
+      SELECT id FROM post_revisions WHERE slug = ? ORDER BY datetime(created_at) DESC, id DESC LIMIT 50
+    )
+  `).run(article.slug, article.slug)
+}
+
+export async function saveArticle(
+  input: ArticleInput,
+  email: string,
+  options: { recordRevision?: boolean } = {},
+): Promise<EditableArticle> {
   const db = ensureBlogSchema()
   const now = new Date().toISOString()
   const readingMinutes = input.protected ? input.readingMinutes : estimateReadingMinutes(input.content)
+  const current = options.recordRevision === false ? null : await getEditableArticle(input.slug)
+  if (current) {
+    const previous = JSON.stringify(editableToInput(current))
+    const next = JSON.stringify({ ...input, readingMinutes })
+    if (previous !== next) recordRevision(db, current, email)
+  }
 
   db.prepare(`
     INSERT INTO posts (
       slug, title, description, content, category, tags_json, image, source_link,
       status, published_at, reading_minutes, protected, encrypted_json, password_hint,
-      author_email, updated_by, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      scheduled_at, author_email, updated_by, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(slug) DO UPDATE SET
       title = excluded.title,
       description = excluded.description,
@@ -374,6 +494,7 @@ export async function saveArticle(input: ArticleInput, email: string): Promise<E
       source_link = excluded.source_link,
       status = excluded.status,
       published_at = excluded.published_at,
+      scheduled_at = excluded.scheduled_at,
       reading_minutes = excluded.reading_minutes,
       protected = excluded.protected,
       encrypted_json = excluded.encrypted_json,
@@ -395,13 +516,104 @@ export async function saveArticle(input: ArticleInput, email: string): Promise<E
     input.protected ? 1 : 0,
     input.protected ? JSON.stringify(input.encrypted) : null,
     input.protected ? input.passwordHint || null : null,
+    input.status === "scheduled" ? input.scheduledAt : null,
     email,
     email,
     now,
     now,
   )
 
+  db.prepare("DELETE FROM post_autosaves WHERE slug = ?").run(input.slug)
+
   const saved = await getEditableArticle(input.slug)
   if (!saved) throw new Error("文章保存后未能重新读取")
   return saved
+}
+
+function revisionSnapshot(id: number, slug: string): ArticleInput | null {
+  const row = ensureBlogSchema().prepare(`
+    SELECT snapshot_json AS snapshotJson FROM post_revisions
+    WHERE id = ? AND slug = ? LIMIT 1
+  `).get(id, slug) as { snapshotJson: string } | undefined
+  if (!row) return null
+  try {
+    return normalizeArticleInput(JSON.parse(row.snapshotJson))
+  } catch {
+    return null
+  }
+}
+
+export function listPostRevisions(slug: string): PostRevisionSummary[] {
+  const rows = ensureBlogSchema().prepare(`
+    SELECT id, slug, snapshot_json AS snapshotJson, updated_by AS updatedBy, created_at AS createdAt
+    FROM post_revisions WHERE slug = ?
+    ORDER BY datetime(created_at) DESC, id DESC LIMIT 50
+  `).all(slug) as unknown as Array<{ id: number; slug: string; snapshotJson: string; updatedBy: string; createdAt: string }>
+  return rows.flatMap((row) => {
+    try {
+      const snapshot = JSON.parse(row.snapshotJson) as Partial<ArticleInput>
+      return [{
+        id: row.id,
+        slug: row.slug,
+        title: typeof snapshot.title === "string" ? snapshot.title : row.slug,
+        status: snapshot.status === "published" || snapshot.status === "scheduled" ? snapshot.status : "draft",
+        updatedBy: row.updatedBy,
+        createdAt: row.createdAt,
+      }]
+    } catch {
+      return []
+    }
+  })
+}
+
+export async function restorePostRevision(id: number, slug: string, username: string): Promise<EditableArticle | null> {
+  if (!Number.isSafeInteger(id) || id < 1) return null
+  const snapshot = revisionSnapshot(id, slug)
+  if (!snapshot) return null
+  return saveArticle(snapshot, username)
+}
+
+function parseAutosave(row: { slug: string; snapshotJson: string; updatedAt: string } | undefined): PostAutosave | null {
+  if (!row) return null
+  try {
+    const article = JSON.parse(row.snapshotJson) as EditableArticle
+    if (!article || article.slug !== row.slug || article.protected || typeof article.content !== "string") return null
+    return { slug: row.slug, article: { ...article, scheduledAt: article.scheduledAt || "" }, updatedAt: row.updatedAt }
+  } catch {
+    return null
+  }
+}
+
+export function getPostAutosave(slug: string): PostAutosave | null {
+  const row = ensureBlogSchema().prepare(`
+    SELECT slug, snapshot_json AS snapshotJson, updated_at AS updatedAt
+    FROM post_autosaves WHERE slug = ? LIMIT 1
+  `).get(slug) as { slug: string; snapshotJson: string; updatedAt: string } | undefined
+  return parseAutosave(row)
+}
+
+export function savePostAutosave(slug: string, value: unknown, username: string): PostAutosave {
+  if (!value || typeof value !== "object") throw new Error("自动保存内容格式不正确")
+  const article = value as EditableArticle
+  if (article.slug !== slug || article.protected) throw new Error("这篇文章不能自动保存到服务器")
+  if (typeof article.content !== "string" || article.content.length > 2_000_000) throw new Error("自动保存正文过大")
+  if (typeof article.title !== "string" || article.title.length > 180) throw new Error("自动保存标题不正确")
+  const snapshot = JSON.stringify({ ...article, scheduledAt: article.scheduledAt || "" })
+  if (snapshot.length > 2_400_000) throw new Error("自动保存内容过大")
+  const now = new Date().toISOString()
+  ensureBlogSchema().prepare(`
+    INSERT INTO post_autosaves (slug, snapshot_json, updated_by, updated_at)
+    VALUES (?, ?, ?, ?)
+    ON CONFLICT(slug) DO UPDATE SET
+      snapshot_json = excluded.snapshot_json,
+      updated_by = excluded.updated_by,
+      updated_at = excluded.updated_at
+  `).run(slug, snapshot, username, now)
+  const saved = getPostAutosave(slug)
+  if (!saved) throw new Error("自动保存失败")
+  return saved
+}
+
+export function deletePostAutosave(slug: string): void {
+  ensureBlogSchema().prepare("DELETE FROM post_autosaves WHERE slug = ?").run(slug)
 }

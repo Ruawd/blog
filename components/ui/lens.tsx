@@ -29,6 +29,8 @@ interface LensProps {
   lensColor?: string
   /** The aria label of the lens */
   ariaLabel?: string
+  /** Optional activation handler, for example opening a gallery lightbox. */
+  onActivate?: () => void
 }
 
 export function Lens({
@@ -41,6 +43,7 @@ export function Lens({
   duration = 0.1,
   lensColor = "black",
   ariaLabel = "Zoom Area",
+  onActivate,
 }: LensProps) {
   if (zoomFactor < 1) {
     throw new Error("zoomFactor must be greater than 1")
@@ -77,7 +80,11 @@ export function Lens({
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
     if (e.key === "Escape") setIsHovering(false)
-  }, [])
+    if (onActivate && (e.key === "Enter" || e.key === " ")) {
+      e.preventDefault()
+      onActivate()
+    }
+  }, [onActivate])
 
   const maskImage = useMotionTemplate`radial-gradient(circle ${
     lensSize / 2
@@ -123,10 +130,11 @@ export function Lens({
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       onMouseMove={handleMouseMove}
+      onClick={onActivate}
       onFocus={handleFocus}
       onBlur={() => setIsHovering(false)}
       onKeyDown={handleKeyDown}
-      role="region"
+      role={onActivate ? "button" : "region"}
       aria-label={ariaLabel}
       tabIndex={0}
     >
