@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import { ArrowUp, Check, Link2, MessageSquare } from "lucide-react"
+import { ArrowUp, Check, Ellipsis, Link2, MessageSquare, X } from "lucide-react"
 
 import type { ArticleHeading } from "@/lib/article-headings"
 
@@ -20,6 +20,7 @@ export function ArticleReadingTools({ headings }: ArticleReadingToolsProps) {
   const [activeId, setActiveId] = useState(headings[0]?.id ?? "")
   const [progress, setProgress] = useState(0)
   const [copied, setCopied] = useState(false)
+  const [actionsOpen, setActionsOpen] = useState(false)
   const copiedTimer = useRef<number | null>(null)
 
   useEffect(() => {
@@ -85,6 +86,15 @@ export function ArticleReadingTools({ headings }: ArticleReadingToolsProps) {
   useEffect(() => () => {
     if (copiedTimer.current) window.clearTimeout(copiedTimer.current)
   }, [])
+
+  useEffect(() => {
+    if (!actionsOpen) return
+    const closeWithEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setActionsOpen(false)
+    }
+    document.addEventListener("keydown", closeWithEscape)
+    return () => document.removeEventListener("keydown", closeWithEscape)
+  }, [actionsOpen])
 
   function scrollToTop() {
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches
@@ -154,18 +164,42 @@ export function ArticleReadingTools({ headings }: ArticleReadingToolsProps) {
         </aside>
       ) : null}
 
-      <div className="article-actions" aria-label="文章快捷操作">
-        <button type="button" onClick={scrollToTop} aria-label="返回顶部" title="返回顶部">
-          <ArrowUp aria-hidden="true" />
-          <span className="article-action-label" aria-hidden="true">返回顶部</span>
-        </button>
-        <button type="button" onClick={scrollToComments} aria-label="直达评论" title="直达评论">
-          <MessageSquare aria-hidden="true" />
-          <span className="article-action-label" aria-hidden="true">直达评论</span>
-        </button>
-        <button type="button" onClick={copyLink} aria-label={copied ? "链接已复制" : "复制文章链接"} title="复制文章链接">
-          {copied ? <Check aria-hidden="true" /> : <Link2 aria-hidden="true" />}
-          <span className="article-action-label" aria-hidden="true">{copied ? "已复制" : "复制链接"}</span>
+      <div className="article-actions" data-expanded={actionsOpen} aria-label="文章快捷操作">
+        <div
+          className="article-action-items"
+          id="article-action-items"
+          aria-hidden={!actionsOpen}
+          style={{
+            opacity: actionsOpen ? 1 : 0,
+            pointerEvents: actionsOpen ? "auto" : "none",
+            transform: actionsOpen
+              ? "translate3d(0, 0, 0)"
+              : "translate3d(0, 18px, 0)",
+          }}
+        >
+          <button type="button" tabIndex={actionsOpen ? 0 : -1} onClick={scrollToTop} aria-label="返回顶部" title="返回顶部">
+            <ArrowUp aria-hidden="true" />
+            <span className="article-action-label" aria-hidden="true">返回顶部</span>
+          </button>
+          <button type="button" tabIndex={actionsOpen ? 0 : -1} onClick={scrollToComments} aria-label="直达评论" title="直达评论">
+            <MessageSquare aria-hidden="true" />
+            <span className="article-action-label" aria-hidden="true">直达评论</span>
+          </button>
+          <button type="button" tabIndex={actionsOpen ? 0 : -1} onClick={copyLink} aria-label={copied ? "链接已复制" : "复制文章链接"} title="复制文章链接">
+            {copied ? <Check aria-hidden="true" /> : <Link2 aria-hidden="true" />}
+            <span className="article-action-label" aria-hidden="true">{copied ? "已复制" : "复制链接"}</span>
+          </button>
+        </div>
+        <button
+          className="article-actions-toggle"
+          type="button"
+          aria-expanded={actionsOpen}
+          aria-controls="article-action-items"
+          aria-label={actionsOpen ? "收起文章快捷操作" : "展开文章快捷操作"}
+          title={actionsOpen ? "收起快捷操作" : "展开快捷操作"}
+          onClick={() => setActionsOpen((current) => !current)}
+        >
+          {actionsOpen ? <X aria-hidden="true" /> : <Ellipsis aria-hidden="true" />}
         </button>
         <span className="sr-only" aria-live="polite">{copied ? "文章链接已复制" : ""}</span>
       </div>

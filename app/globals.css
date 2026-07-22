@@ -1838,7 +1838,7 @@ a {
     top: 0;
     right: 0;
     display: flex;
-    width: min(380px, calc(100vw - 28px));
+    width: clamp(196px, 52vw, 260px);
     height: 100svh;
     flex-direction: column;
     border-left: 1px solid rgba(23, 24, 20, 0.13);
@@ -1971,8 +1971,12 @@ a {
 }
 
 @media (max-width: 640px) {
-  .brand > span:last-child { display: none; }
-  .brand { gap: 0; }
+  .brand { gap: 10px; }
+  .brand > span:last-child {
+    display: inline;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+  }
 
   .hero {
     min-height: 100svh;
@@ -2883,7 +2887,18 @@ a {
   bottom: max(24px, env(safe-area-inset-bottom));
   z-index: 45;
   display: grid;
+  justify-items: end;
   gap: 8px;
+}
+
+.article-action-items {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: grid;
+  gap: 8px;
+  transition: transform 240ms linear, opacity 240ms linear;
+  will-change: transform, opacity;
 }
 
 .article-actions button {
@@ -2905,6 +2920,11 @@ a {
   border-color: var(--foreground);
   background: var(--foreground);
   color: var(--background);
+}
+
+.article-actions-toggle {
+  position: relative;
+  z-index: 1;
 }
 
 .article-actions button svg {
@@ -5024,6 +5044,11 @@ a {
   .admin-post-item,
   .admin-header nav a,
   .admin-savebar button {
+    transition: none;
+  }
+
+  .article-action-items {
+    transform: none !important;
     transition: none;
   }
 }
