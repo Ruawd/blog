@@ -63,7 +63,7 @@ export default function BlogPage() {
                     src={post.image}
                     alt=""
                     width={800}
-                    height={400}
+                    height={600}
                     loading={index < 3 ? "eager" : "lazy"}
                     referrerPolicy="strict-origin-when-cross-origin"
                   />

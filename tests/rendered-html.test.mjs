@@ -53,7 +53,7 @@ test("renders the site identity and real blog index", async () => {
   assert.match(blog, /AWS Lightsail JP \$5测试/)
   assert.match(blog, /Stalwart Mail Server 安装与初步配置教程/)
   assert.match(blog, /class="post-cover"/)
-  assert.match(blog, /width="800" height="400"/)
+  assert.match(blog, /width="800" height="600"/)
   assert.match(blog, /dateTime="2026-06-26"/)
   assert.match(blog, /VPS 测评/)
   assert.match(blog, /VPS测评/)
@@ -79,7 +79,7 @@ test("renders an article detail route", async () => {
 
 test("keeps blog hover feedback layout-stable", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8")
-  assert.match(styles, /aspect-ratio: 2 \/ 1;/)
+  assert.match(styles, /aspect-ratio: 4 \/ 3;/)
   assert.match(styles, /transition: background-color 200ms ease-out;/)
   assert.doesNotMatch(styles, /\.post-card:hover\s*\{[^}]*padding-inline:/)
   assert.match(styles, /\.post-card:hover \.post-cover/)
