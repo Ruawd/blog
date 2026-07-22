@@ -11,6 +11,7 @@ type SiteFrameProps = {
   description: string
   children: ReactNode
   variant?: "default" | "article"
+  heroAction?: ReactNode
 }
 
 export function SiteFrame({
@@ -19,13 +20,14 @@ export function SiteFrame({
   description,
   children,
   variant = "default",
+  heroAction,
 }: SiteFrameProps) {
   return (
     <div className={variant === "article" ? "site-shell article-shell" : "site-shell"}>
       <a className="skip-link" href="#main">跳到主要内容</a>
       <SiteHeader />
       <main className="subpage-main" id="main">
-        <section className="page-hero" aria-labelledby="page-title">
+        <section className={heroAction ? "page-hero has-action" : "page-hero"} aria-labelledby="page-title">
           <DotPattern />
           <div className="page-hero-copy">
             <p className="eyebrow">{eyebrow}</p>
@@ -34,6 +36,7 @@ export function SiteFrame({
             </TextAnimate>
             <p>{description}</p>
           </div>
+          {heroAction ? <div className="page-hero-action">{heroAction}</div> : null}
         </section>
         <div className="page-content">{children}</div>
       </main>

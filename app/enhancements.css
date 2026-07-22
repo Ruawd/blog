@@ -251,6 +251,9 @@
 .dark .home-feature-card:not(.is-featured) { background: var(--surface); color: var(--foreground); }
 .dark .home-feature-card:not(.is-featured)::after { border-color: var(--border); }
 .dark .magic-card::before { background: radial-gradient(240px circle at var(--magic-x, 50%) var(--magic-y, 50%), rgba(255,255,255,.14), transparent 70%); }
+.dark .blog-rss-link { background: rgba(23,24,27,.8); }
+.dark .blog-rss-link::before { background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,.12) 48%, transparent 76%); }
+.dark .blog-rss-link:hover { background: var(--foreground); color: var(--background); }
 .dark .album-card:hover,
 .dark .album-card:focus-within,
 .dark .album-collection-magic:hover,

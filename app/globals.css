@@ -1088,6 +1088,18 @@ a {
   line-height: 1.65;
 }
 
+.page-hero.has-action {
+  justify-content: space-between;
+  gap: clamp(28px, 5vw, 72px);
+}
+
+.page-hero-action {
+  position: relative;
+  z-index: 1;
+  flex: 0 0 auto;
+  padding-bottom: 2px;
+}
+
 .page-content {
   width: min(1200px, calc(100% - 48px));
   margin: 0 auto;
@@ -1140,6 +1152,40 @@ a {
 }
 
 /* Blog */
+.blog-rss-link {
+  position: relative;
+  display: inline-flex;
+  min-height: 54px;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  padding: 0 18px;
+  border: 1px solid var(--border);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--foreground);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 13px;
+  letter-spacing: .08em;
+  backdrop-filter: blur(12px);
+  transition: border-color 180ms ease-out, background 180ms ease-out, color 180ms ease-out, transform 180ms ease-out;
+}
+
+.blog-rss-link::before {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(110deg, transparent 20%, rgba(17,17,17,.07) 48%, transparent 76%);
+  content: "";
+  opacity: 0;
+  transform: translateX(-42%);
+  transition: opacity 180ms ease-out, transform 280ms cubic-bezier(.16,1,.3,1);
+}
+
+.blog-rss-link > * { position: relative; z-index: 1; }
+.blog-rss-link:hover { transform: translateY(-2px); border-color: var(--foreground); background: var(--foreground); color: var(--background); }
+.blog-rss-link:hover::before { opacity: 1; transform: translateX(28%); }
+.blog-rss-link svg { width: 17px; height: 17px; stroke-width: 1.7; }
+.blog-rss-link small { padding-left: 10px; border-left: 1px solid currentColor; font-size: 9px; opacity: .58; letter-spacing: .06em; }
+
 .blog-explorer {
   display: grid;
   gap: 20px;
@@ -2115,6 +2161,33 @@ a {
   font-size: 16px;
 }
 
+.post-view-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted-foreground);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+  text-transform: none;
+  white-space: nowrap;
+}
+
+.post-view-count svg {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 auto;
+  stroke-width: 1.7;
+}
+
+.post-view-number {
+  display: inline-block;
+  min-width: 4ch;
+  color: var(--foreground);
+  font-weight: 620;
+}
+
+.post-view-count.has-label .post-view-label { color: inherit; }
+
 .post-copy h3 {
   margin: 0 0 10px;
   font-size: clamp(1.45rem, 3vw, 2.6rem);
@@ -2805,6 +2878,9 @@ a {
   }
   .page-hero-copy { width: 100%; }
   .page-hero-copy h1 { font-size: clamp(2.75rem, 13vw, 4.5rem); }
+  .page-hero.has-action { align-items: flex-start; flex-direction: column; gap: 28px; }
+  .page-hero-action { width: 100%; padding-bottom: 0; }
+  .blog-rss-link { width: 100%; justify-content: center; }
   .page-content { width: calc(100% - 40px); padding-top: 48px; }
   .page-section > header,
   .section-header,

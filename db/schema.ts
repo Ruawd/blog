@@ -176,6 +176,26 @@ export const postAutosaves = sqliteTable("post_autosaves", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 })
 
+export const postViews = sqliteTable("post_views", {
+  slug: text("slug").primaryKey(),
+  viewCount: integer("view_count").notNull().default(0),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+})
+
+export const postViewEvents = sqliteTable(
+  "post_view_events",
+  {
+    slug: text("slug").notNull(),
+    actorHash: text("actor_hash").notNull(),
+    viewedDay: text("viewed_day").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    primaryKey({ columns: [table.slug, table.actorHash, table.viewedDay] }),
+    index("post_view_events_day_idx").on(table.viewedDay),
+  ],
+)
+
 export const requestRateLimits = sqliteTable(
   "request_rate_limits",
   {

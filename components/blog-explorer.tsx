@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useDeferredValue, useMemo, useState } from "react"
 import { ArrowRight, LockKeyhole, Search, SearchX, X } from "lucide-react"
 
+import { PostViewCount } from "@/components/post-view-count"
 import { ResilientImage } from "@/components/resilient-image"
 import { AnimatedList, AnimatedListItem } from "@/components/ui/animated-list"
 
@@ -17,6 +18,7 @@ export type BlogExplorerPost = {
   category: string
   readingMinutes: number
   protected: boolean
+  viewCount: number
   searchAliases: string[]
 }
 
@@ -166,6 +168,7 @@ export function BlogExplorer({ posts, initialCategory }: { posts: BlogExplorerPo
                     {dateFormatter.format(new Date(`${post.published}T00:00:00+08:00`))}
                   </time>
                   <span>{post.category}</span>
+                  <PostViewCount key={`${post.slug}-${post.viewCount}`} slug={post.slug} initialCount={post.viewCount} />
                 </header>
 
                 <div className="post-copy">

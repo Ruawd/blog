@@ -119,6 +119,9 @@ test("renders the site identity and real blog index", async () => {
   assert.match(blog, /class="post-cover"/)
   assert.match(blog, /width="800" height="600"/)
   assert.match(blog, /技术实践、VPS 测评与数字生活记录。/)
+  assert.match(blog, /class="blog-rss-link" href="\/feed.xml" type="application\/rss\+xml"/)
+  assert.match(blog, /订阅文章/)
+  assert.match(blog, /data-view-slug="aws-lightsail-jp-5-review" data-view-count="0"/)
   assert.match(blog, /aria-label="按分类筛选文章"/)
   assert.match(blog, /href="\/blog\/categories"/)
   assert.doesNotMatch(blog, /aria-label="按标签筛选文章"/)
@@ -172,6 +175,49 @@ test("renders an article detail route with reading tools", async () => {
   assert.match(html, /data-expanded="false"/)
   assert.match(html, /aria-label="展开文章快捷操作"/)
   assert.match(html, /id="article-action-items" aria-hidden="true"/)
+  assert.match(html, /data-view-slug="memos-casdoor-oauth-login" data-view-count="0"/)
+  assert.match(html, /"@type":"InteractionCounter"/)
+})
+
+test("tracks unique daily article views and exposes them on list and detail pages", async () => {
+  const viewHeaders = { origin: baseUrl, "x-forwarded-for": "198.51.100.42" }
+  const firstViewResponse = await request("/api/posts/memos-casdoor-oauth-login/view", {
+    method: "POST",
+    headers: viewHeaders,
+  })
+  assert.equal(firstViewResponse.status, 200)
+  const actorCookie = firstViewResponse.headers.get("set-cookie")?.split(";")[0]
+  assert.ok(actorCookie?.startsWith("ruawd_comment_actor="))
+  assert.deepEqual(await firstViewResponse.json(), { count: 1, counted: true })
+
+  const duplicateViewResponse = await request("/api/posts/memos-casdoor-oauth-login/view", {
+    method: "POST",
+    headers: { ...viewHeaders, cookie: actorCookie },
+  })
+  assert.equal(duplicateViewResponse.status, 200)
+  assert.deepEqual(await duplicateViewResponse.json(), { count: 1, counted: false })
+
+  const anotherPostResponse = await request("/api/posts/aws-lightsail-jp-5-review/view", {
+    method: "POST",
+    headers: { ...viewHeaders, cookie: actorCookie },
+  })
+  assert.equal(anotherPostResponse.status, 200)
+  assert.deepEqual(await anotherPostResponse.json(), { count: 1, counted: true })
+
+  const crossOriginResponse = await request("/api/posts/memos-casdoor-oauth-login/view", { method: "POST" })
+  assert.equal(crossOriginResponse.status, 403)
+  const missingResponse = await request("/api/posts/not-a-real-post/view", {
+    method: "POST",
+    headers: { ...viewHeaders, cookie: actorCookie },
+  })
+  assert.equal(missingResponse.status, 404)
+
+  const [blogHtml, articleHtml] = await Promise.all([
+    request("/blog").then((response) => response.text()),
+    request("/blog/memos-casdoor-oauth-login").then((response) => response.text()),
+  ])
+  assert.match(blogHtml, /data-view-slug="aws-lightsail-jp-5-review" data-view-count="1"/)
+  assert.match(articleHtml, /data-view-slug="memos-casdoor-oauth-login" data-view-count="1"/)
 })
 
 test("protects the management backend and supports draft-to-publish workflow", async () => {

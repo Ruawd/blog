@@ -1,10 +1,12 @@
 import type { Metadata } from "next"
+import { Rss } from "lucide-react"
 
 import { BlogExplorer, type BlogExplorerPost } from "@/components/blog-explorer"
 import { SiteFrame } from "@/components/site-frame"
 import { ManagedPageBody } from "@/components/managed-page-body"
 import { listPublishedBlogPosts } from "@/lib/blog-repository"
 import { getPageContent } from "@/lib/page-content"
+import { listPostViewCounts } from "@/lib/post-view-repository"
 import { createSearchAliases } from "@/lib/site-search"
 
 export const dynamic = "force-dynamic"
@@ -20,6 +22,7 @@ export default async function BlogPage({
   searchParams: Promise<{ category?: string }>
 }) {
   const [blogPosts, page] = await Promise.all([listPublishedBlogPosts(), getPageContent("blog")])
+  const viewCounts = listPostViewCounts(blogPosts.map((post) => post.slug))
   const { category } = await searchParams
   const publicPosts: BlogExplorerPost[] = blogPosts.map((post) => ({
     slug: post.slug,
@@ -31,6 +34,7 @@ export default async function BlogPage({
     category: post.category,
     readingMinutes: post.readingMinutes,
     protected: post.protected,
+    viewCount: viewCounts[post.slug] || 0,
     searchAliases: createSearchAliases([
       post.title,
       post.description,
@@ -45,6 +49,13 @@ export default async function BlogPage({
       eyebrow={page.eyebrow}
       title={page.title}
       description={page.description}
+      heroAction={(
+        <a className="blog-rss-link" href="/feed.xml" type="application/rss+xml" aria-label="订阅 Ruawd 的文章 RSS">
+          <Rss aria-hidden="true" />
+          <span>RSS</span>
+          <small>订阅文章</small>
+        </a>
+      )}
     >
       <ManagedPageBody content={page.body} />
       <section className="page-section" aria-labelledby="latest-posts-title">

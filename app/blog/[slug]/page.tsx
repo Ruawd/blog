@@ -6,11 +6,13 @@ import { notFound } from "next/navigation"
 import { ArticleMarkdown } from "@/components/article-markdown"
 import { ArticleReadingTools } from "@/components/article-reading-tools"
 import { CommentSection } from "@/components/comment-section"
+import { PostViewCount } from "@/components/post-view-count"
 import { ProtectedArticle } from "@/components/protected-article"
 import { ResilientImage } from "@/components/resilient-image"
 import { SiteFrame } from "@/components/site-frame"
 import { extractArticleHeadings } from "@/lib/article-headings"
 import { getPublishedBlogPost, listPublishedBlogPosts } from "@/lib/blog-repository"
+import { getPostViewCount } from "@/lib/post-view-repository"
 import { siteConfig } from "@/lib/site"
 
 export const dynamic = "force-dynamic"
@@ -58,6 +60,7 @@ export default async function BlogPostPage({
     listPublishedBlogPosts(),
   ])
   if (!post) notFound()
+  const initialViewCount = getPostViewCount(post.slug)
   const headings = extractArticleHeadings(post.content || "")
   const currentIndex = posts.findIndex((item) => item.slug === post.slug)
   const newerPost = currentIndex > 0 ? posts[currentIndex - 1] : null
@@ -87,6 +90,11 @@ export default async function BlogPostPage({
     keywords: post.tags.join(", "),
     articleSection: post.category,
     isAccessibleForFree: !post.protected,
+    interactionStatistic: {
+      "@type": "InteractionCounter",
+      interactionType: { "@type": "ViewAction" },
+      userInteractionCount: initialViewCount,
+    },
   }
 
   return (
@@ -112,6 +120,7 @@ export default async function BlogPostPage({
               {post.updated && post.updated !== post.published ? (
                 <span><History aria-hidden="true" />更新于 {dateFormatter.format(new Date(`${post.updated}T00:00:00+08:00`))}</span>
               ) : null}
+              <PostViewCount key={post.slug} slug={post.slug} initialCount={initialViewCount} track showLabel />
               {post.protected ? <span><LockKeyhole aria-hidden="true" />密码保护</span> : null}
               <ul aria-label="文章标签">
                 {post.tags.map((tag) => <li key={tag}>#{tag}</li>)}
