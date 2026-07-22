@@ -37,9 +37,9 @@ export default async function AlbumPage() {
               <Image
                 src={photo.src}
                 alt={`${photo.alt} ${String(index + 1).padStart(2, "0")}`}
-                width={1600}
-                height={1200}
-                sizes="(max-width: 640px) 100vw, (max-width: 900px) 50vw, 42vw"
+                width={photo.width}
+                height={photo.height}
+                sizes="(max-width: 640px) 50vw, (max-width: 980px) 50vw, 33vw"
                 unoptimized
                 loading="lazy"
               />

@@ -1430,55 +1430,45 @@ a {
 
 /* Album */
 .album-grid {
-  display: grid;
-  grid-template-columns: repeat(12, 1fr);
-  grid-auto-rows: 82px;
-  gap: 12px;
+  columns: 3;
+  column-gap: 12px;
 }
 
 .album-card {
   position: relative;
-  grid-column: span 4;
-  grid-row: span 4;
+  display: inline-block;
+  width: 100%;
+  margin: 0 0 12px;
   overflow: hidden;
   border: 1px solid var(--border);
   background: var(--surface-soft);
-}
-
-.album-card:nth-child(5n + 1) {
-  grid-column: span 7;
-  grid-row: span 5;
-}
-
-.album-card:nth-child(5n + 2) {
-  grid-column: span 5;
-  grid-row: span 5;
+  break-inside: avoid;
+  vertical-align: top;
 }
 
 .album-card img {
+  display: block;
   width: 100%;
-  height: 100%;
-  object-fit: cover;
+  height: auto;
+  object-fit: contain;
   filter: saturate(0.68) contrast(1.03);
-  transition: transform 500ms ease-out, filter 300ms ease-out;
+  transition: filter 300ms ease-out;
 }
 
 .album-card:hover img {
-  transform: scale(1.035);
   filter: saturate(1) contrast(1.02);
 }
 
 .album-card figcaption {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
   display: flex;
+  min-height: 44px;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 42px 18px 16px;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.82));
-  color: #f5f5f0;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
   font-size: 12px;
 }
 
@@ -2312,9 +2302,7 @@ a {
   .friend-grid,
   .link-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bangumi-board { grid-template-columns: 1fr; gap: 54px; }
-  .album-card { grid-column: span 6; }
-  .album-card:nth-child(5n + 1),
-  .album-card:nth-child(5n + 2) { grid-column: span 6; grid-row: span 4; }
+  .album-grid { columns: 2; }
 }
 
 @media (max-width: 640px) {
@@ -2410,10 +2398,19 @@ a {
   .support-grid,
   .about-layout { grid-template-columns: 1fr; }
 
-  .album-grid { grid-auto-rows: 72px; }
-  .album-card,
-  .album-card:nth-child(5n + 1),
-  .album-card:nth-child(5n + 2) { grid-column: 1 / -1; grid-row: span 4; }
+  .album-grid {
+    columns: 2;
+    column-gap: 8px;
+  }
+
+  .album-card { margin-bottom: 8px; }
+
+  .album-card figcaption {
+    min-height: 40px;
+    gap: 8px;
+    padding: 8px 10px;
+    font-size: 10px;
+  }
 
   .about-facts > div,
   .timeline > li { grid-template-columns: 80px 1fr; }

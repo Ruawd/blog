@@ -26,38 +26,56 @@ export const albumPhotos = [
   {
     src: "/blog-media/gallery/firefly-2026/cover.avif",
     alt: "可爱流萤相册封面",
+    width: 4096,
+    height: 2212,
   },
   {
     src: "/blog-media/gallery/firefly-2026/1.avif",
     alt: "可爱流萤相册图片",
+    width: 1631,
+    height: 917,
   },
   {
     src: "/blog-media/gallery/firefly-2026/imported/01.webp",
     alt: "流萤插画",
+    width: 3840,
+    height: 2160,
   },
   {
     src: "https://s41.ax1x.com/2026/05/13/peXyh79.jpg",
     alt: "流萤插画",
+    width: 3328,
+    height: 4864,
   },
   {
     src: "https://s41.ax1x.com/2026/05/13/peXshJP.webp",
     alt: "流萤插画",
+    width: 2688,
+    height: 1536,
   },
   {
     src: "https://s41.ax1x.com/2026/05/13/peXyWm4.jpg",
     alt: "流萤插画",
+    width: 3328,
+    height: 4864,
   },
   {
     src: "https://s41.ax1x.com/2026/05/13/peXsRII.webp",
     alt: "流萤插画",
+    width: 2416,
+    height: 1376,
   },
   {
     src: "https://s41.ax1x.com/2026/05/13/peXyf0J.jpg",
     alt: "流萤插画",
+    width: 3328,
+    height: 4864,
   },
   {
     src: "https://s41.ax1x.com/2026/05/13/peXs2dA.webp",
     alt: "流萤插画",
+    width: 2688,
+    height: 1536,
   },
 ] as const
 
