@@ -2880,7 +2880,132 @@ a {
 
 .comment-item header a svg { width: 13px; height: 13px; }
 .comment-item time { color: var(--muted-foreground); font-family: var(--font-geist-mono), monospace; font-size: 11px; }
-.comment-item > p { margin: 18px 0 0 55px; white-space: pre-wrap; line-height: 1.8; overflow-wrap: anywhere; }
+
+.comment-thread-root,
+.comment-thread-node { min-width: 0; background: var(--surface); }
+.comment-thread-node > .comment-item { min-width: 0; }
+.comment-thread-children {
+  position: relative;
+  margin-left: 55px;
+  padding-left: 22px;
+  border-left: 1px solid var(--border);
+}
+.comment-thread-children > .comment-thread-node { border-top: 1px solid var(--border); }
+.comment-thread-node.is-deep > .comment-thread-children { margin-left: 18px; padding-left: 14px; }
+
+.comment-reply-context {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 17px 0 0 55px;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+.comment-reply-context svg { width: 14px; height: 14px; flex: 0 0 auto; }
+.comment-reply-context strong { color: var(--foreground); font-weight: 650; }
+.comment-content { margin: 12px 0 0 55px; white-space: pre-wrap; line-height: 1.8; overflow-wrap: anywhere; }
+
+.comment-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px 20px;
+  margin: 18px 0 0 55px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.comment-primary-actions,
+.comment-reaction-actions { display: flex; align-items: center; gap: 8px; }
+.comment-primary-actions button,
+.comment-reaction-actions button {
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  transition: border-color 180ms ease, background 180ms ease, color 180ms ease, opacity 180ms ease;
+}
+.comment-primary-actions button:hover:not(:disabled),
+.comment-reaction-actions button:hover:not(:disabled) { border-color: var(--foreground); color: var(--foreground); }
+.comment-primary-actions button.is-active { border-color: #111; background: #111; color: #fff; }
+.comment-primary-actions button:disabled,
+.comment-reaction-actions button:disabled { cursor: wait; opacity: .5; }
+.comment-primary-actions svg,
+.comment-reaction-actions svg { width: 15px; height: 15px; }
+.comment-primary-actions b,
+.comment-reaction-actions b { font-family: var(--font-geist-mono), monospace; font-size: 9px; font-weight: 650; }
+.comment-reaction-actions { margin-left: auto; }
+.comment-reaction-actions > span { margin-right: 2px; color: var(--muted-foreground); font-size: 10px; }
+.comment-reaction-actions button { padding: 0 10px; color: var(--foreground); }
+.comment-reaction-actions button.is-active { border-color: #111; background: rgba(17,17,17,.07); }
+.comment-reaction-actions button.is-active svg { fill: currentColor; }
+
+.comment-reply-form {
+  margin: 22px 0 0 55px;
+  padding: 18px;
+  border: 1px solid var(--border);
+  background: var(--background);
+}
+.comment-reply-form > header { display: flex; min-height: 44px; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.comment-reply-form > header > div { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.comment-reply-form > header > div svg { width: 16px; height: 16px; }
+.comment-reply-form > header strong { color: var(--foreground); }
+.comment-reply-form > header > button {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  padding: 0;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.comment-reply-form > header > button:hover { border-color: var(--foreground); }
+.comment-reply-form > header > button svg { width: 16px; height: 16px; }
+.comment-reply-profile { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.comment-reply-form label { display: grid; gap: 7px; color: var(--muted-foreground); font-size: 11px; font-weight: 650; }
+.comment-reply-form input,
+.comment-reply-form textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--foreground);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.65;
+  outline: none;
+  resize: vertical;
+  transition: border-color 180ms ease, background 180ms ease, box-shadow 180ms ease;
+}
+.comment-reply-form input:focus,
+.comment-reply-form textarea:focus { border-color: var(--foreground); background: #fff; box-shadow: 0 0 0 3px rgba(17,17,17,.07); }
+.comment-reply-extras { margin-top: 14px; border: 1px solid var(--border); }
+.comment-reply-extras summary { min-height: 44px; align-content: center; padding: 0 12px; color: var(--muted-foreground); font-size: 10px; cursor: pointer; }
+.comment-reply-extras[open] summary { border-bottom: 1px solid var(--border); }
+.comment-reply-extras > div { padding: 14px; }
+.comment-reply-content { margin-top: 14px; }
+.comment-reply-form > footer { display: flex; min-height: 50px; align-items: end; justify-content: space-between; gap: 18px; margin-top: 12px; }
+.comment-reply-form > footer > p { margin: 0; color: var(--muted-foreground); font-size: 10px; line-height: 1.55; }
+.comment-reply-form > footer > p.is-error { color: #8f1717; }
+.comment-reply-form > footer > div { display: flex; flex: 0 0 auto; gap: 8px; }
+.comment-reply-form > footer > div > button:not(.magic-shimmer-button) { min-height: 44px; padding: 0 14px; border: 1px solid var(--border); background: transparent; color: inherit; font: inherit; font-size: 11px; cursor: pointer; }
+.comment-reply-form .magic-shimmer-button { min-width: 132px; padding: 0 16px; }
+
+.comment-thread-feedback { margin: 18px 0 -12px; padding: 12px 14px; border: 1px solid var(--border); color: var(--muted-foreground); font-size: 11px; }
+.comment-thread-feedback.is-success { border-color: rgba(23,99,45,.3); color: #17632d; }
+.comment-thread-feedback.is-error { border-color: rgba(143,23,23,.3); color: #8f1717; }
 
 .comment-loading,
 .comment-empty,
@@ -3707,7 +3832,15 @@ a {
   .admin-page-editor-footer { align-items: stretch; flex-direction: column; }
   .comment-form .magic-shimmer-button,
   .admin-page-editor .magic-shimmer-button { width: 100%; }
-  .comment-item > p { margin-left: 0; }
+  .comment-reply-context,
+  .comment-content,
+  .comment-actions,
+  .comment-reply-form { margin-left: 0; }
+  .comment-actions { align-items: flex-start; flex-direction: column; }
+  .comment-reaction-actions { width: 100%; margin-left: 0; flex-wrap: wrap; }
+  .comment-reply-form > footer { align-items: stretch; flex-direction: column; }
+  .comment-reply-form > footer > div { width: 100%; }
+  .comment-reply-form > footer > div > button { flex: 1; }
   .admin-section-tabs { grid-template-columns: 1fr; }
   .admin-section-tabs button,
   .admin-section-tabs button:nth-child(3n) { min-height: 66px; border-right: 0; border-bottom: 1px solid var(--border); }
@@ -3780,6 +3913,17 @@ a {
   .bangumi-loading-grid span:nth-child(n + 7) { display: none; }
   .admin-bangumi-categories > div,
   .admin-field-grid { grid-template-columns: 1fr; }
+  .comment-thread-children,
+  .comment-thread-node.is-deep > .comment-thread-children { margin-left: 12px; padding-left: 10px; }
+  .comment-reply-profile { grid-template-columns: 1fr; }
+  .comment-reply-form { padding: 14px; }
+  .comment-reply-form input,
+  .comment-reply-form textarea { font-size: 16px; }
+  .comment-primary-actions { width: 100%; }
+  .comment-primary-actions button { flex: 1; }
+  .comment-reaction-actions { display: grid; grid-template-columns: auto repeat(4, minmax(44px, 1fr)); }
+  .comment-reaction-actions > span { margin: 0; }
+  .comment-reaction-actions button { width: 100%; padding: 0 6px; }
   .admin-bangumi-categories label { border-right: 0; }
   .admin-bangumi-categories label:nth-last-child(2) { border-bottom: 1px solid var(--border); }
   .admin-album-manager { padding: 18px; }

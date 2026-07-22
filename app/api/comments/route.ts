@@ -1,5 +1,6 @@
 import { isSameOrigin } from "@/lib/admin-session"
 import { getPublishedBlogPost } from "@/lib/blog-repository"
+import { readCommentActorHash } from "@/lib/comment-actor"
 import { createComment, listPublicComments } from "@/lib/comment-repository"
 
 export const dynamic = "force-dynamic"
@@ -16,7 +17,7 @@ function isRateLimited(address: string): boolean {
   const now = Date.now()
   const recent = (attempts.get(address) ?? []).filter((time) => now - time < 10 * 60_000)
   attempts.set(address, recent)
-  if (recent.length >= 5) return true
+  if (recent.length >= 10) return true
   recent.push(now)
   return false
 }
@@ -25,7 +26,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   try {
     return Response.json({
-      comments: await listPublicComments(url.searchParams.get("scope"), url.searchParams.get("target")),
+      comments: await listPublicComments(
+        url.searchParams.get("scope"),
+        url.searchParams.get("target"),
+        readCommentActorHash(request),
+      ),
     })
   } catch (error) {
     return Response.json({ error: error instanceof Error ? error.message : "评论读取失败" }, { status: 400 })

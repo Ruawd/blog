@@ -478,7 +478,7 @@ test("supports friend editing, ordering, deletion, and automatic review", async 
   assert.equal(finalFriends.length, 3)
 })
 
-test("supports guestbook messages and article-isolated comments", async () => {
+test("supports threaded comments, likes, reactions, and article isolation", async () => {
   const headers = { origin: baseUrl, "content-type": "application/json" }
   const guestbookResponse = await request("/api/comments", {
     method: "POST",
@@ -486,6 +486,10 @@ test("supports guestbook messages and article-isolated comments", async () => {
     body: JSON.stringify({ scope: "guestbook", target: "guestbook", nickname: "访客甲", email: "guest@example.com", website: "", avatarUrl: "", content: "这是一条留言簿测试内容。", company: "" }),
   })
   assert.equal(guestbookResponse.status, 201)
+  const guestbookRoot = (await guestbookResponse.json()).comment
+  assert.equal(guestbookRoot.parentId, null)
+  assert.deepEqual(guestbookRoot.likes, { count: 0, active: false })
+  assert.equal(guestbookRoot.reactions.length, 4)
 
   const articleResponse = await request("/api/comments", {
     method: "POST",
@@ -494,23 +498,109 @@ test("supports guestbook messages and article-isolated comments", async () => {
   })
   assert.equal(articleResponse.status, 201)
 
-  const guestbook = await (await request("/api/comments?scope=guestbook&target=guestbook")).json()
+  const replyResponse = await request("/api/comments", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ scope: "guestbook", target: "guestbook", parentId: guestbookRoot.id, nickname: "访客丙", email: "", website: "", avatarUrl: "", content: "这是第一层回复。", company: "" }),
+  })
+  assert.equal(replyResponse.status, 201)
+  const firstReply = (await replyResponse.json()).comment
+  assert.equal(firstReply.parentId, guestbookRoot.id)
+  assert.equal(firstReply.replyToNickname, "访客甲")
+
+  const nestedReplyResponse = await request("/api/comments", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ scope: "guestbook", target: "guestbook", parentId: firstReply.id, nickname: "访客丁", email: "", website: "", avatarUrl: "", content: "这是楼中楼回复。", company: "" }),
+  })
+  assert.equal(nestedReplyResponse.status, 201)
+  const nestedReply = (await nestedReplyResponse.json()).comment
+  assert.equal(nestedReply.parentId, firstReply.id)
+  assert.equal(nestedReply.replyToNickname, "访客丙")
+
+  const crossThreadReply = await request("/api/comments", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ scope: "article", target: "memos-casdoor-oauth-login", parentId: guestbookRoot.id, nickname: "跨区回复", email: "", website: "", avatarUrl: "", content: "不允许跨频道回复。", company: "" }),
+  })
+  assert.equal(crossThreadReply.status, 400)
+
+  const likeResponse = await request(`/api/comments/${guestbookRoot.id}/interactions`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({ kind: "like" }),
+  })
+  assert.equal(likeResponse.status, 200)
+  const actorCookie = likeResponse.headers.get("set-cookie")?.split(";")[0]
+  assert.ok(actorCookie?.startsWith("ruawd_comment_actor="))
+  assert.deepEqual((await likeResponse.json()).interaction, { kind: "like", count: 1, active: true })
+
+  const interactionHeaders = { ...headers, cookie: actorCookie }
+  const heartResponse = await request(`/api/comments/${guestbookRoot.id}/interactions`, {
+    method: "POST",
+    headers: interactionHeaders,
+    body: JSON.stringify({ kind: "heart" }),
+  })
+  assert.equal(heartResponse.status, 200)
+  assert.deepEqual((await heartResponse.json()).interaction, { kind: "heart", count: 1, active: true })
+
+  const unlikeResponse = await request(`/api/comments/${guestbookRoot.id}/interactions`, {
+    method: "POST",
+    headers: interactionHeaders,
+    body: JSON.stringify({ kind: "like" }),
+  })
+  assert.equal(unlikeResponse.status, 200)
+  assert.deepEqual((await unlikeResponse.json()).interaction, { kind: "like", count: 0, active: false })
+  const relikeResponse = await request(`/api/comments/${guestbookRoot.id}/interactions`, {
+    method: "POST",
+    headers: interactionHeaders,
+    body: JSON.stringify({ kind: "like" }),
+  })
+  assert.equal(relikeResponse.status, 200)
+
+  const invalidReaction = await request(`/api/comments/${guestbookRoot.id}/interactions`, {
+    method: "POST",
+    headers: interactionHeaders,
+    body: JSON.stringify({ kind: "dislike" }),
+  })
+  assert.equal(invalidReaction.status, 400)
+  const crossOriginReaction = await request(`/api/comments/${guestbookRoot.id}/interactions`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ kind: "like" }),
+  })
+  assert.equal(crossOriginReaction.status, 403)
+
+  const guestbook = await (await request("/api/comments?scope=guestbook&target=guestbook", { headers: { cookie: actorCookie } })).json()
   const article = await (await request("/api/comments?scope=article&target=memos-casdoor-oauth-login")).json()
   const anotherArticle = await (await request("/api/comments?scope=article&target=another-post")).json()
-  assert.equal(guestbook.comments.length, 1)
+  assert.equal(guestbook.comments.length, 3)
   assert.equal(article.comments.length, 1)
   assert.equal(anotherArticle.comments.length, 0)
-  assert.equal(guestbook.comments[0].email, undefined)
-  assert.match(guestbook.comments[0].avatarUrl, /^\/api\/avatars\/comments\/\d+\?v=2$/)
+  const publicRoot = guestbook.comments.find((comment) => comment.id === guestbookRoot.id)
+  const publicReply = guestbook.comments.find((comment) => comment.id === firstReply.id)
+  assert.equal(publicRoot.email, undefined)
+  assert.match(publicRoot.avatarUrl, /^\/api\/avatars\/comments\/\d+\?v=2$/)
+  assert.deepEqual(publicRoot.likes, { count: 1, active: true })
+  assert.deepEqual(publicRoot.reactions.find((reaction) => reaction.kind === "heart"), { kind: "heart", count: 1, active: true })
+  assert.equal(publicReply.parentId, guestbookRoot.id)
+  assert.equal(publicReply.replyToNickname, "访客甲")
   assert.equal(article.comments[0].avatarUrl, "https://example.com/avatar.png")
   assert.match(article.comments[0].content, /文章独立评论/)
+
+  const anonymousGuestbook = await (await request("/api/comments?scope=guestbook&target=guestbook")).json()
+  const anonymousRoot = anonymousGuestbook.comments.find((comment) => comment.id === guestbookRoot.id)
+  assert.deepEqual(anonymousRoot.likes, { count: 1, active: false })
+  assert.equal(anonymousRoot.reactions.find((reaction) => reaction.kind === "heart").active, false)
 
   const cookie = adminCookie()
   const adminCommentsResponse = await request("/api/admin/comments", { headers: { cookie } })
   assert.equal(adminCommentsResponse.status, 200)
   const adminComments = (await adminCommentsResponse.json()).comments
-  const guestbookAdmin = adminComments.find((comment) => comment.scope === "guestbook")
+  const guestbookAdmin = adminComments.find((comment) => comment.id === guestbookRoot.id)
   assert.equal(guestbookAdmin.email, "guest@example.com")
+  assert.equal(guestbookAdmin.likes.count, 1)
+  assert.equal(adminComments.find((comment) => comment.id === firstReply.id).replyToNickname, "访客甲")
   const hideResponse = await request(`/api/admin/comments/${guestbookAdmin.id}`, {
     method: "PATCH",
     headers: { cookie, origin: baseUrl, "content-type": "application/json" },
@@ -520,11 +610,31 @@ test("supports guestbook messages and article-isolated comments", async () => {
   const hiddenGuestbook = await (await request("/api/comments?scope=guestbook&target=guestbook")).json()
   assert.equal(hiddenGuestbook.comments.length, 0)
 
+  const restoreResponse = await request(`/api/admin/comments/${guestbookAdmin.id}`, {
+    method: "PATCH",
+    headers: { cookie, origin: baseUrl, "content-type": "application/json" },
+    body: JSON.stringify({ status: "approved" }),
+  })
+  assert.equal(restoreResponse.status, 200)
+  const restoredGuestbook = await (await request("/api/comments?scope=guestbook&target=guestbook")).json()
+  assert.equal(restoredGuestbook.comments.length, 3)
+
+  const deleteRootResponse = await request(`/api/admin/comments/${guestbookRoot.id}`, {
+    method: "DELETE",
+    headers: { cookie, origin: baseUrl },
+  })
+  assert.equal(deleteRootResponse.status, 204)
+  const afterRootDelete = await (await request("/api/comments?scope=guestbook&target=guestbook")).json()
+  assert.equal(afterRootDelete.comments.length, 2)
+  assert.equal(afterRootDelete.comments.find((comment) => comment.id === firstReply.id).parentId, null)
+  assert.equal(afterRootDelete.comments.find((comment) => comment.id === nestedReply.id).parentId, firstReply.id)
+
   const articleHtml = await (await request("/blog/memos-casdoor-oauth-login")).text()
   assert.match(articleHtml, /文章评论/)
   assert.match(articleHtml, /邮箱（不公开/)
   assert.match(articleHtml, /头像链接/)
   assert.match(articleHtml, /QQ 头像或 Gravatar/)
+  assert.match(articleHtml, /支持楼中楼回复、点赞和表情回应/)
 })
 
 test("keeps the editor responsive, stable, and free of emoji controls", async () => {

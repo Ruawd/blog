@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm"
-import { index, integer, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core"
+import { index, integer, sqliteTable, text, uniqueIndex, type AnySQLiteColumn } from "drizzle-orm/sqlite-core"
 
 export const posts = sqliteTable(
   "posts",
@@ -102,11 +102,30 @@ export const comments = sqliteTable(
     email: text("email"),
     website: text("website"),
     avatarUrl: text("avatar_url"),
+    parentId: integer("parent_id").references((): AnySQLiteColumn => comments.id, { onDelete: "set null" }),
     content: text("content").notNull(),
     status: text("status", { enum: ["approved", "hidden"] }).notNull().default("approved"),
     ipHash: text("ip_hash").notNull().default(""),
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
-  (table) => [index("comments_scope_target_idx").on(table.scope, table.target, table.status, table.createdAt)],
+  (table) => [
+    index("comments_scope_target_idx").on(table.scope, table.target, table.status, table.createdAt),
+    index("comments_parent_status_idx").on(table.parentId, table.status, table.createdAt),
+  ],
+)
+
+export const commentInteractions = sqliteTable(
+  "comment_interactions",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    commentId: integer("comment_id").notNull().references(() => comments.id, { onDelete: "cascade" }),
+    actorHash: text("actor_hash").notNull(),
+    kind: text("kind", { enum: ["like", "heart", "laugh", "surprised", "support"] }).notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("comment_interactions_actor_kind_unique").on(table.commentId, table.actorHash, table.kind),
+    index("comment_interactions_comment_kind_idx").on(table.commentId, table.kind),
+  ],
 )

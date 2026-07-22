@@ -2,25 +2,47 @@ import { createHmac } from "node:crypto"
 import type { DatabaseSync } from "node:sqlite"
 
 import { getDatabase } from "@/db"
+import {
+  commentReactionOptions,
+  isCommentInteractionKind,
+  type CommentInteractionKind,
+  type CommentReactionKind,
+} from "@/lib/comment-reactions"
 
 export type CommentScope = "guestbook" | "article"
 export type CommentStatus = "approved" | "hidden"
+export type CommentReactionSummary = {
+  kind: CommentReactionKind
+  count: number
+  active: boolean
+}
 export type PublicComment = {
   id: number
   scope: CommentScope
   target: string
+  parentId: number | null
+  replyToNickname: string
   nickname: string
   website: string
   avatarUrl: string
   content: string
+  likes: { count: number; active: boolean }
+  reactions: CommentReactionSummary[]
   createdAt: string
 }
 export type AdminComment = PublicComment & { email: string; status: CommentStatus }
+export type CommentInteractionUpdate = {
+  kind: CommentInteractionKind
+  count: number
+  active: boolean
+}
 
 type CommentRow = {
   id: number
   scope: CommentScope
   target: string
+  parentId: number | null
+  replyToNickname: string
   nickname: string
   email: string
   website: string
@@ -29,41 +51,79 @@ type CommentRow = {
   status: CommentStatus
   createdAt: string
 }
+
+type InteractionSummary = {
+  likes: { count: number; active: boolean }
+  reactions: CommentReactionSummary[]
+}
+
+const MAX_REPLY_DEPTH = 8
 let schemaReady = false
 
 function ensureCommentSchema(): DatabaseSync {
   const db = getDatabase()
-  if (!schemaReady) {
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS comments (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        scope TEXT NOT NULL,
-        target TEXT NOT NULL,
-        nickname TEXT NOT NULL,
-        email TEXT,
-        website TEXT,
-        avatar_url TEXT,
-        content TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'approved',
-        ip_hash TEXT NOT NULL DEFAULT '',
-        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
-      );
-      CREATE INDEX IF NOT EXISTS comments_scope_target_idx
-      ON comments (scope, target, status, created_at);
-    `)
-    const columns = db.prepare("PRAGMA table_info(comments)").all() as unknown as Array<{ name: string }>
-    if (!columns.some((column) => column.name === "avatar_url")) {
-      db.exec("ALTER TABLE comments ADD COLUMN avatar_url TEXT")
-    }
-    schemaReady = true
+  if (schemaReady) return db
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS comments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      scope TEXT NOT NULL,
+      target TEXT NOT NULL,
+      nickname TEXT NOT NULL,
+      email TEXT,
+      website TEXT,
+      avatar_url TEXT,
+      parent_id INTEGER REFERENCES comments(id) ON DELETE SET NULL,
+      content TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'approved',
+      ip_hash TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS comments_scope_target_idx
+    ON comments (scope, target, status, created_at);
+  `)
+  const columns = db.prepare("PRAGMA table_info(comments)").all() as unknown as Array<{ name: string }>
+  if (!columns.some((column) => column.name === "avatar_url")) {
+    db.exec("ALTER TABLE comments ADD COLUMN avatar_url TEXT")
   }
+  if (!columns.some((column) => column.name === "parent_id")) {
+    db.exec("ALTER TABLE comments ADD COLUMN parent_id INTEGER REFERENCES comments(id) ON DELETE SET NULL")
+  }
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS comments_parent_status_idx
+    ON comments (parent_id, status, created_at);
+    CREATE TABLE IF NOT EXISTS comment_interactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+      comment_id INTEGER NOT NULL REFERENCES comments(id) ON DELETE CASCADE,
+      actor_hash TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS comment_interactions_actor_kind_unique
+    ON comment_interactions (comment_id, actor_hash, kind);
+    CREATE INDEX IF NOT EXISTS comment_interactions_comment_kind_idx
+    ON comment_interactions (comment_id, kind);
+  `)
+  schemaReady = true
   return db
 }
 
-const select = `SELECT id, scope, target, nickname, COALESCE(email, '') AS email,
-  COALESCE(website, '') AS website, COALESCE(avatar_url, '') AS avatarUrl,
-  content, status, created_at AS createdAt FROM comments`
+const select = `SELECT
+  c.id,
+  c.scope,
+  c.target,
+  c.parent_id AS parentId,
+  COALESCE(parent.nickname, '') AS replyToNickname,
+  c.nickname,
+  COALESCE(c.email, '') AS email,
+  COALESCE(c.website, '') AS website,
+  COALESCE(c.avatar_url, '') AS avatarUrl,
+  c.content,
+  c.status,
+  c.created_at AS createdAt
+FROM comments c
+LEFT JOIN comments parent ON parent.id = c.parent_id`
 
 function validateScope(value: unknown): CommentScope {
   if (value === "guestbook" || value === "article") return value
@@ -97,8 +157,7 @@ function optionalAvatarUrl(value: unknown): string {
   if (text.length > 1000) throw new Error("头像链接过长")
   try {
     const url = new URL(text)
-    if (url.protocol !== "https:") throw new Error()
-    if (url.username || url.password) throw new Error()
+    if (url.protocol !== "https:" || url.username || url.password) throw new Error()
     url.hash = ""
     return url.toString()
   } catch {
@@ -106,29 +165,133 @@ function optionalAvatarUrl(value: unknown): string {
   }
 }
 
+function optionalParentId(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return null
+  const parentId = Number(value)
+  if (!Number.isSafeInteger(parentId) || parentId < 1) throw new Error("回复目标不正确")
+  return parentId
+}
+
 function publicAvatarUrl(row: CommentRow): string {
   if (row.avatarUrl) return row.avatarUrl
   return row.email ? `/api/avatars/comments/${row.id}?v=2` : ""
 }
 
-function toPublicComment(row: CommentRow): PublicComment {
+function emptyInteractionSummary(): InteractionSummary {
+  return {
+    likes: { count: 0, active: false },
+    reactions: commentReactionOptions.map((option) => ({
+      kind: option.kind,
+      count: 0,
+      active: false,
+    })),
+  }
+}
+
+function interactionSummaries(db: DatabaseSync, commentIds: number[], actorHash = ""): Map<number, InteractionSummary> {
+  const summaries = new Map(commentIds.map((id) => [id, emptyInteractionSummary()]))
+  if (!commentIds.length) return summaries
+  const idList = commentIds.join(",")
+  const counts = db.prepare(`
+    SELECT comment_id AS commentId, kind, COUNT(*) AS count
+    FROM comment_interactions
+    WHERE comment_id IN (${idList})
+    GROUP BY comment_id, kind
+  `).all() as unknown as Array<{ commentId: number; kind: string; count: number }>
+  for (const row of counts) {
+    const summary = summaries.get(row.commentId)
+    if (!summary) continue
+    if (row.kind === "like") summary.likes.count = Number(row.count)
+    else {
+      const reaction = summary.reactions.find((item) => item.kind === row.kind)
+      if (reaction) reaction.count = Number(row.count)
+    }
+  }
+
+  if (actorHash) {
+    const active = db.prepare(`
+      SELECT comment_id AS commentId, kind
+      FROM comment_interactions
+      WHERE actor_hash = ? AND comment_id IN (${idList})
+    `).all(actorHash) as unknown as Array<{ commentId: number; kind: string }>
+    for (const row of active) {
+      const summary = summaries.get(row.commentId)
+      if (!summary) continue
+      if (row.kind === "like") summary.likes.active = true
+      else {
+        const reaction = summary.reactions.find((item) => item.kind === row.kind)
+        if (reaction) reaction.active = true
+      }
+    }
+  }
+  return summaries
+}
+
+function toPublicComment(row: CommentRow, interaction: InteractionSummary): PublicComment {
   return {
     id: row.id,
     scope: row.scope,
     target: row.target,
+    parentId: row.parentId,
+    replyToNickname: row.replyToNickname,
     nickname: row.nickname,
     website: row.website,
     avatarUrl: publicAvatarUrl(row),
     content: row.content,
+    likes: interaction.likes,
+    reactions: interaction.reactions,
     createdAt: row.createdAt,
   }
 }
 
-function toAdminComment(row: CommentRow): AdminComment {
+function toAdminComment(row: CommentRow, interaction: InteractionSummary): AdminComment {
   return {
-    ...toPublicComment(row),
+    ...toPublicComment(row, interaction),
     email: row.email,
     status: row.status,
+  }
+}
+
+function visibleApprovedRows(rows: CommentRow[]): CommentRow[] {
+  const byId = new Map(rows.map((row) => [row.id, row]))
+  return rows.filter((row) => {
+    if (row.status !== "approved") return false
+    const visited = new Set<number>([row.id])
+    let current = row
+    while (current.parentId) {
+      if (visited.has(current.parentId)) return false
+      visited.add(current.parentId)
+      const parent = byId.get(current.parentId)
+      if (!parent || parent.status !== "approved") return false
+      current = parent
+    }
+    return true
+  })
+}
+
+function commentRow(id: number): CommentRow | null {
+  const row = ensureCommentSchema().prepare(`${select} WHERE c.id = ? LIMIT 1`).get(id) as unknown as CommentRow | undefined
+  return row || null
+}
+
+function validateParentThread(db: DatabaseSync, parentId: number | null, scope: CommentScope, target: string): void {
+  if (!parentId) return
+  const visited = new Set<number>()
+  let currentId: number | null = parentId
+  let depth = 0
+  while (currentId) {
+    if (visited.has(currentId)) throw new Error("回复关系出现循环")
+    visited.add(currentId)
+    const parent = db.prepare(`
+      SELECT id, scope, target, status, parent_id AS parentId
+      FROM comments WHERE id = ? LIMIT 1
+    `).get(currentId) as { id: number; scope: CommentScope; target: string; status: CommentStatus; parentId: number | null } | undefined
+    if (!parent || parent.scope !== scope || parent.target !== target || parent.status !== "approved") {
+      throw new Error("回复的评论不存在或暂不可见")
+    }
+    depth += 1
+    if (depth > MAX_REPLY_DEPTH) throw new Error(`回复最多支持 ${MAX_REPLY_DEPTH} 层`)
+    currentId = parent.parentId
   }
 }
 
@@ -147,6 +310,7 @@ export function normalizeComment(value: unknown) {
   return {
     scope,
     target,
+    parentId: optionalParentId(input.parentId),
     nickname,
     email,
     website: optionalUrl(input.website),
@@ -155,24 +319,36 @@ export function normalizeComment(value: unknown) {
   }
 }
 
-export async function listPublicComments(scopeValue: unknown, targetValue: unknown): Promise<PublicComment[]> {
+export async function listPublicComments(scopeValue: unknown, targetValue: unknown, actorHash = ""): Promise<PublicComment[]> {
   const scope = validateScope(scopeValue)
   const target = validateTarget(scope, targetValue)
-  const rows = ensureCommentSchema().prepare(`${select} WHERE scope = ? AND target = ? AND status = 'approved' ORDER BY datetime(created_at) DESC`).all(scope, target) as unknown as CommentRow[]
-  return rows.map(toPublicComment)
+  const db = ensureCommentSchema()
+  const rows = db.prepare(`
+    ${select}
+    WHERE c.scope = ? AND c.target = ?
+    ORDER BY datetime(c.created_at) ASC, c.id ASC
+  `).all(scope, target) as unknown as CommentRow[]
+  const visible = visibleApprovedRows(rows)
+  const interactions = interactionSummaries(db, visible.map((row) => row.id), actorHash)
+  return visible.map((row) => toPublicComment(row, interactions.get(row.id) || emptyInteractionSummary()))
 }
 
 export async function createComment(value: unknown, ipAddress: string): Promise<PublicComment> {
   const input = normalizeComment(value)
+  const db = ensureCommentSchema()
+  validateParentThread(db, input.parentId, input.scope, input.target)
   const now = new Date().toISOString()
   const secret = process.env.SESSION_SECRET || "local-comment-hash"
   const ipHash = createHmac("sha256", secret).update(ipAddress).digest("hex")
-  const result = ensureCommentSchema().prepare(`
-    INSERT INTO comments (scope, target, nickname, email, website, avatar_url, content, status, ip_hash, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)
+  const result = db.prepare(`
+    INSERT INTO comments (
+      scope, target, parent_id, nickname, email, website, avatar_url, content,
+      status, ip_hash, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved', ?, ?, ?)
   `).run(
     input.scope,
     input.target,
+    input.parentId,
     input.nickname,
     input.email || null,
     input.website || null,
@@ -182,27 +358,69 @@ export async function createComment(value: unknown, ipAddress: string): Promise<
     now,
     now,
   )
-  const row = ensureCommentSchema().prepare(`${select} WHERE id = ?`).get(Number(result.lastInsertRowid)) as unknown as CommentRow
-  return toPublicComment(row)
+  const row = commentRow(Number(result.lastInsertRowid))
+  if (!row) throw new Error("留言保存失败")
+  return toPublicComment(row, emptyInteractionSummary())
 }
 
 export async function listAdminComments(): Promise<AdminComment[]> {
-  const rows = ensureCommentSchema().prepare(`${select} ORDER BY datetime(created_at) DESC`).all() as unknown as CommentRow[]
-  return rows.map(toAdminComment)
+  const db = ensureCommentSchema()
+  const rows = db.prepare(`${select} ORDER BY datetime(c.created_at) DESC, c.id DESC`).all() as unknown as CommentRow[]
+  const interactions = interactionSummaries(db, rows.map((row) => row.id))
+  return rows.map((row) => toAdminComment(row, interactions.get(row.id) || emptyInteractionSummary()))
 }
 
 export async function setCommentStatus(id: number, status: CommentStatus): Promise<AdminComment | null> {
-  ensureCommentSchema().prepare("UPDATE comments SET status = ?, updated_at = ? WHERE id = ?").run(status, new Date().toISOString(), id)
-  const row = ensureCommentSchema().prepare(`${select} WHERE id = ?`).get(id) as unknown as CommentRow | undefined
-  return row ? toAdminComment(row) : null
+  const db = ensureCommentSchema()
+  db.prepare("UPDATE comments SET status = ?, updated_at = ? WHERE id = ?").run(status, new Date().toISOString(), id)
+  const row = commentRow(id)
+  if (!row) return null
+  const interaction = interactionSummaries(db, [id]).get(id) || emptyInteractionSummary()
+  return toAdminComment(row, interaction)
+}
+
+export function toggleCommentInteraction(id: number, kindValue: unknown, actorHash: string): CommentInteractionUpdate {
+  if (!Number.isSafeInteger(id) || id < 1) throw new Error("评论编号不正确")
+  if (!isCommentInteractionKind(kindValue)) throw new Error("回应类型不正确")
+  if (!actorHash) throw new Error("无法识别当前访客")
+  const db = ensureCommentSchema()
+  const current = commentRow(id)
+  if (!current || current.status !== "approved") throw new Error("评论不存在或暂不可见")
+  validateParentThread(db, current.parentId, current.scope, current.target)
+
+  const existing = db.prepare(`
+    SELECT id FROM comment_interactions
+    WHERE comment_id = ? AND actor_hash = ? AND kind = ? LIMIT 1
+  `).get(id, actorHash, kindValue) as { id: number } | undefined
+  let active: boolean
+  if (existing) {
+    db.prepare("DELETE FROM comment_interactions WHERE id = ?").run(existing.id)
+    active = false
+  } else {
+    db.prepare(`
+      INSERT INTO comment_interactions (comment_id, actor_hash, kind, created_at)
+      VALUES (?, ?, ?, ?)
+    `).run(id, actorHash, kindValue, new Date().toISOString())
+    active = true
+  }
+  const count = db.prepare(`
+    SELECT COUNT(*) AS count FROM comment_interactions
+    WHERE comment_id = ? AND kind = ?
+  `).get(id, kindValue) as { count: number }
+  return { kind: kindValue, count: Number(count.count), active }
 }
 
 export function getApprovedCommentEmail(id: number): string | null {
   if (!Number.isSafeInteger(id) || id < 1) return null
-  const row = ensureCommentSchema().prepare(
-    "SELECT COALESCE(email, '') AS email FROM comments WHERE id = ? AND status = 'approved'",
-  ).get(id) as { email?: string } | undefined
-  return row?.email?.trim().toLowerCase() || null
+  const db = ensureCommentSchema()
+  const row = commentRow(id)
+  if (!row || row.status !== "approved") return null
+  try {
+    validateParentThread(db, row.parentId, row.scope, row.target)
+  } catch {
+    return null
+  }
+  return row.email.trim().toLowerCase() || null
 }
 
 export async function deleteComment(id: number): Promise<boolean> {
