@@ -7,7 +7,11 @@ import { ChevronDown, Menu, X } from "lucide-react"
 import { aboutItems, mineItems, navItems, siteConfig } from "@/lib/site"
 
 export function SiteHeader() {
+  const [openDesktopMenu, setOpenDesktopMenu] = useState<"mine" | "about" | null>(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const desktopNavRef = useRef<HTMLElement>(null)
+  const mineMenuButtonRef = useRef<HTMLButtonElement>(null)
+  const aboutMenuButtonRef = useRef<HTMLButtonElement>(null)
   const menuTriggerRef = useRef<HTMLButtonElement>(null)
   const menuPanelRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
@@ -19,6 +23,33 @@ export function SiteHeader() {
       window.requestAnimationFrame(() => menuTriggerRef.current?.focus())
     }
   }
+
+  useEffect(() => {
+    if (!openDesktopMenu) return
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!desktopNavRef.current?.contains(event.target as Node)) {
+        setOpenDesktopMenu(null)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return
+
+      event.preventDefault()
+      const buttonRef = openDesktopMenu === "mine" ? mineMenuButtonRef : aboutMenuButtonRef
+      setOpenDesktopMenu(null)
+      window.requestAnimationFrame(() => buttonRef.current?.focus())
+    }
+
+    document.addEventListener("pointerdown", handlePointerDown)
+    document.addEventListener("keydown", handleKeyDown)
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown)
+      document.removeEventListener("keydown", handleKeyDown)
+    }
+  }, [openDesktopMenu])
 
   useEffect(() => {
     if (!isMenuOpen) return
@@ -69,40 +100,70 @@ export function SiteHeader() {
         <span>{siteConfig.name}</span>
       </Link>
 
-      <nav className="desktop-nav" aria-label="主导航">
+      <nav ref={desktopNavRef} className="desktop-nav" aria-label="主导航">
         {navItems.map((item) => (
           <Link href={item.href} key={item.href}>
             {item.label}
           </Link>
         ))}
 
-        <details className="nav-dropdown">
-          <summary>
+        <div className="nav-dropdown" data-open={openDesktopMenu === "mine"}>
+          <button
+            ref={mineMenuButtonRef}
+            type="button"
+            aria-expanded={openDesktopMenu === "mine"}
+            aria-controls="mine-dropdown"
+            onClick={() => setOpenDesktopMenu((current) => current === "mine" ? null : "mine")}
+          >
             我的 <ChevronDown aria-hidden="true" />
-          </summary>
-          <div className="dropdown-panel">
+          </button>
+          <div
+            id="mine-dropdown"
+            className="dropdown-panel"
+            aria-hidden={openDesktopMenu !== "mine"}
+          >
             {mineItems.map((item) => (
-              <Link href={item.href} key={item.href}>
+              <Link
+                href={item.href}
+                key={item.href}
+                tabIndex={openDesktopMenu === "mine" ? 0 : -1}
+                onClick={() => setOpenDesktopMenu(null)}
+              >
                 <strong>{item.label}</strong>
                 <span>{item.description}</span>
               </Link>
             ))}
           </div>
-        </details>
+        </div>
 
-        <details className="nav-dropdown">
-          <summary>
+        <div className="nav-dropdown" data-open={openDesktopMenu === "about"}>
+          <button
+            ref={aboutMenuButtonRef}
+            type="button"
+            aria-expanded={openDesktopMenu === "about"}
+            aria-controls="about-dropdown"
+            onClick={() => setOpenDesktopMenu((current) => current === "about" ? null : "about")}
+          >
             关于 <ChevronDown aria-hidden="true" />
-          </summary>
-          <div className="dropdown-panel">
+          </button>
+          <div
+            id="about-dropdown"
+            className="dropdown-panel"
+            aria-hidden={openDesktopMenu !== "about"}
+          >
             {aboutItems.map((item) => (
-              <Link href={item.href} key={item.href}>
+              <Link
+                href={item.href}
+                key={item.href}
+                tabIndex={openDesktopMenu === "about" ? 0 : -1}
+                onClick={() => setOpenDesktopMenu(null)}
+              >
                 <strong>{item.label}</strong>
                 <span>{item.description}</span>
               </Link>
             ))}
           </div>
-        </details>
+        </div>
 
         <Link href="/links">链接</Link>
       </nav>
