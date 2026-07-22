@@ -126,13 +126,15 @@ test("renders an article detail route with reading tools", async () => {
 })
 
 test("protects the management backend and supports draft-to-publish workflow", async () => {
-  const [adminResponse, apiResponse] = await Promise.all([
+  const [adminResponse, apiResponse, bangumiApiResponse] = await Promise.all([
     request("/admin"),
     request("/api/admin/posts"),
+    request("/api/admin/bangumi"),
   ])
   assert.equal(adminResponse.status, 307)
   assert.match(adminResponse.headers.get("location") ?? "", /\/admin\/login/)
   assert.equal(apiResponse.status, 401)
+  assert.equal(bangumiApiResponse.status, 401)
 
   const loginResponse = await request("/api/admin/session", {
     method: "POST",
@@ -148,7 +150,36 @@ test("protects the management backend and supports draft-to-publish workflow", a
   const adminHtml = await authenticatedAdmin.text()
   assert.match(adminHtml, /内容管理/)
   assert.match(adminHtml, /页面内容/)
+  assert.match(adminHtml, /番组 API/)
   assert.match(adminHtml, /留言与评论/)
+
+  const bangumiToken = "integration-test-bangumi-token"
+  const bangumiSaveResponse = await request("/api/admin/bangumi", {
+    method: "PUT",
+    headers: { cookie, origin: baseUrl, "content-type": "application/json" },
+    body: JSON.stringify({
+      userId: "ruawd",
+      apiBaseUrl: "https://api.bgm.tv",
+      subjectBaseUrl: "https://bgm.tv/subject/",
+      userAgent: "RuawdBlogTest/1.0 (https://blog.ruawd.de)",
+      enabledCategories: ["anime", "book", "music", "game"],
+      cacheTtlSeconds: 900,
+      includePrivate: false,
+      accessToken: bangumiToken,
+      removeAccessToken: false,
+    }),
+  })
+  assert.equal(bangumiSaveResponse.status, 200)
+  const bangumiSavedText = await bangumiSaveResponse.text()
+  assert.doesNotMatch(bangumiSavedText, new RegExp(bangumiToken))
+  const bangumiSaved = JSON.parse(bangumiSavedText).settings
+  assert.equal(bangumiSaved.accessTokenConfigured, true)
+  assert.equal(bangumiSaved.accessToken, undefined)
+
+  const bangumiSettingsResponse = await request("/api/admin/bangumi", { headers: { cookie } })
+  assert.equal(bangumiSettingsResponse.status, 200)
+  const bangumiSettingsText = await bangumiSettingsResponse.text()
+  assert.doesNotMatch(bangumiSettingsText, new RegExp(bangumiToken))
 
   const protectedEditorResponse = await request(
     "/api/admin/posts/poste-io-mail-server-guide",
@@ -320,6 +351,7 @@ test("keeps the editor responsive, stable, and free of emoji controls", async ()
   assert.match(editor, /解锁并编辑/)
   assert.match(editor, /encryptArticleContent/)
   assert.match(consoleUi, /页面内容/)
+  assert.match(consoleUi, /番组 API/)
   assert.match(consoleUi, /留言与评论/)
   assert.match(session, /httpOnly: true/)
   assert.match(session, /sameSite: "lax"/)

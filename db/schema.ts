@@ -37,6 +37,20 @@ export const pageContents = sqliteTable("page_contents", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 })
 
+export const bangumiSettings = sqliteTable("bangumi_settings", {
+  id: integer("id").primaryKey(),
+  userId: text("user_id").notNull(),
+  apiBaseUrl: text("api_base_url").notNull(),
+  subjectBaseUrl: text("subject_base_url").notNull(),
+  userAgent: text("user_agent").notNull(),
+  enabledCategoriesJson: text("enabled_categories_json").notNull().default('["anime","book","music","game"]'),
+  cacheTtlSeconds: integer("cache_ttl_seconds").notNull().default(900),
+  includePrivate: integer("include_private").notNull().default(0),
+  encryptedAccessToken: text("encrypted_access_token").notNull().default(""),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+})
+
 export const comments = sqliteTable(
   "comments",
   {

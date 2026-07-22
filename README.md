@@ -6,12 +6,24 @@
 
 - `/blog`：公开文章列表与文章详情
 - `/message`：公开留言簿
+- `/mine/bangumi`：从 Bangumi API 同步动画、书籍、音乐和游戏收藏
 - `/admin/login`：管理员登录
-- `/admin`：文章编辑、各页面内容编辑，以及留言/评论审核
+- `/admin`：文章编辑、各页面内容编辑、Bangumi API 配置，以及留言/评论审核
 - 每篇文章拥有独立评论区，昵称、网站和正文公开，邮箱仅后台可见
 - 页面与文章编辑器均支持 Markdown 实时预览
 - `/api/admin/*`：受服务端会话保护的内容管理接口
 - 原有静态文章继续保留；在后台编辑后由数据库版本覆盖
+
+## Bangumi 同步
+
+番组计划默认读取用户 `ruawd` 在 `https://api.bgm.tv` 的公开收藏。登录后台后进入“番组 API”，可以修改：
+
+- Bangumi 用户 ID
+- API 根地址和条目跳转地址
+- User-Agent、缓存时间和展示分类
+- 可选 Access Token，以及是否公开展示私有收藏
+
+访问令牌只用于服务器端请求，写入 SQLite 前会使用 `SESSION_SECRET` 派生的密钥进行 AES-256-GCM 加密，管理接口不会返回令牌明文。更换 `SESSION_SECRET` 后需要重新填写访问令牌。
 
 ## 本地运行
 

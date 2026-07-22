@@ -9,7 +9,7 @@ export const pageContentDefaults = {
   friends: { path: "/friends", label: "友链", eyebrow: "NEIGHBORS / FRIENDS", title: "友链", description: "在互联网上遇见的朋友与值得常去的网站。", body: "" },
   links: { path: "/links", label: "链接", eyebrow: "LINKS / 个人链接", title: "在别处找到我", description: "我的个人主页、联系方式与常用站外入口。", body: "" },
   album: { path: "/mine/album", label: "相册", eyebrow: "MY / ALBUM", title: "相册", description: "飞萤之火自无梦的长夜亮起，绽放在终竟的明天。", body: "" },
-  bangumi: { path: "/mine/bangumi", label: "番组计划", eyebrow: "MY / BANGUMI", title: "番组计划", description: "想看、在看与看过的动画记录；片单目前还没有添加条目。", body: "" },
+  bangumi: { path: "/mine/bangumi", label: "番组计划", eyebrow: "MY / BANGUMI", title: "番组计划", description: "想看、在看与看过的动画、书籍、音乐和游戏记录。", body: "" },
   support: { path: "/about/support", label: "打赏", eyebrow: "SUPPORT / 自愿支持", title: "支持 Ruawd Blog", description: "你的赞助将用于服务器维护、内容创作和功能开发。", body: "" },
   about: { path: "/about/me", label: "关于我", eyebrow: "ABOUT / 关于我", title: "你好，我是 Ruawd", description: "Hello, I'm Ruawd. 欢迎来到我的个人博客。", body: "" },
 } as const

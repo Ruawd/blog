@@ -1,8 +1,11 @@
 import type { Metadata } from "next"
-import { Clapperboard } from "lucide-react"
+import { CircleAlert, RefreshCw } from "lucide-react"
 
+import { BangumiBoard } from "@/components/bangumi-board"
 import { SiteFrame } from "@/components/site-frame"
 import { ManagedPageBody } from "@/components/managed-page-body"
+import { getBangumiLibrary } from "@/lib/bangumi-api"
+import { getBangumiSettings } from "@/lib/bangumi-settings"
 import { getPageContent } from "@/lib/page-content"
 
 export const metadata: Metadata = {
@@ -14,19 +17,30 @@ export const dynamic = "force-dynamic"
 
 export default async function BangumiPage() {
   const page = await getPageContent("bangumi")
+  const settings = getBangumiSettings()
+  let library = null
+  let error = ""
+  try {
+    library = await getBangumiLibrary(settings)
+  } catch (reason) {
+    error = reason instanceof Error ? reason.message : "Bangumi 数据暂时无法读取"
+  }
   return (
     <SiteFrame
       eyebrow={page.eyebrow}
       title={page.title}
       description={page.description}
     >
-      <ManagedPageBody content={page.body} />
-      <section className="empty-state" aria-labelledby="bangumi-empty-title">
-        <Clapperboard aria-hidden="true" />
-        <p className="section-kicker">NO ENTRIES YET</p>
-        <h2 id="bangumi-empty-title">片单还是空的</h2>
-        <p>之后会在这里整理想看、在看和看过的番组。</p>
-      </section>
+      {page.body.trim() ? <ManagedPageBody content={page.body} /> : null}
+      {library ? <BangumiBoard library={library} /> : (
+        <section className="bangumi-error-state" role="alert">
+          <CircleAlert aria-hidden="true" />
+          <p className="section-kicker">BANGUMI API</p>
+          <h2>番组数据暂时无法读取</h2>
+          <p>{error}</p>
+          <a href="/mine/bangumi"><RefreshCw aria-hidden="true" />重新加载</a>
+        </section>
+      )}
     </SiteFrame>
   )
 }
