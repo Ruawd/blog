@@ -3,15 +3,12 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react"
 import {
   Check,
-  CircleAlert,
   ExternalLink,
-  Heart,
-  Laugh,
   LoaderCircle,
   MessageSquareText,
-  PartyPopper,
   Reply,
   Send,
+  SmilePlus,
   ThumbsUp,
   X,
 } from "lucide-react"
@@ -27,7 +24,6 @@ import type {
 import {
   commentReactionOptions,
   type CommentInteractionKind,
-  type CommentReactionKind,
 } from "@/lib/comment-reactions"
 
 type CommentSectionProps = {
@@ -99,27 +95,24 @@ function CommentAvatar({ nickname, src }: { nickname: string; src: string }) {
   )
 }
 
-function ReactionIcon({ kind }: { kind: CommentReactionKind }) {
-  if (kind === "heart") return <Heart aria-hidden="true" />
-  if (kind === "laugh") return <Laugh aria-hidden="true" />
-  if (kind === "surprised") return <CircleAlert aria-hidden="true" />
-  return <PartyPopper aria-hidden="true" />
-}
-
 function CommentThreadNode({
   node,
   depth,
   replyingTo,
+  reactionPickerId,
   busyInteraction,
   onReply,
+  onToggleReactionPicker,
   onInteraction,
   renderReplyForm,
 }: {
   node: CommentNode
   depth: number
   replyingTo: number | null
+  reactionPickerId: number | null
   busyInteraction: string
   onReply: (comment: PublicComment) => void
+  onToggleReactionPicker: (comment: PublicComment) => void
   onInteraction: (comment: PublicComment, kind: CommentInteractionKind) => void
   renderReplyForm: (comment: PublicComment) => ReactNode
 }) {
@@ -148,7 +141,7 @@ function CommentThreadNode({
           <div className="comment-primary-actions">
             <button
               type="button"
-              className={replyingTo === comment.id ? "is-active" : ""}
+              className={`comment-reply-button${replyingTo === comment.id ? " is-active" : ""}`}
               aria-expanded={replyingTo === comment.id}
               onClick={() => onReply(comment)}
             >
@@ -156,7 +149,7 @@ function CommentThreadNode({
             </button>
             <button
               type="button"
-              className={comment.likes.active ? "is-active" : ""}
+              className={`comment-like-button${comment.likes.active ? " is-active" : ""}`}
               aria-pressed={comment.likes.active}
               disabled={busyInteraction === `${comment.id}:like`}
               onClick={() => onInteraction(comment, "like")}
@@ -169,26 +162,60 @@ function CommentThreadNode({
           </div>
 
           <div className="comment-reaction-actions" aria-label={`回应 ${comment.nickname} 的评论`}>
-            <span>回应</span>
-            {commentReactionOptions.map((option) => {
-              const reaction = comment.reactions.find((item) => item.kind === option.kind)
+            {comment.reactions.filter((reaction) => reaction.count > 0).map((reaction) => {
+              const option = commentReactionOptions.find((item) => item.kind === reaction.kind)
+              if (!option) return null
               const busy = busyInteraction === `${comment.id}:${option.kind}`
               return (
                 <button
                   type="button"
-                  className={reaction?.active ? "is-active" : ""}
-                  aria-label={`${option.label}${reaction?.count ? `，${reaction.count} 人` : ""}`}
-                  aria-pressed={reaction?.active || false}
+                  className={`comment-reaction-chip${reaction.active ? " is-active" : ""}`}
+                  aria-label={`${option.label}，${reaction.count} 人`}
+                  aria-pressed={reaction.active}
                   title={option.label}
                   disabled={busy}
                   onClick={() => onInteraction(comment, option.kind)}
                   key={option.kind}
                 >
-                  {busy ? <LoaderCircle className="spin" aria-hidden="true" /> : <ReactionIcon kind={option.kind} />}
-                  {reaction?.count ? <b>{reaction.count}</b> : null}
+                  {busy ? <LoaderCircle className="spin" aria-hidden="true" /> : <span className="comment-emoji" aria-hidden="true">{option.emoji}</span>}
+                  <b>{reaction.count}</b>
                 </button>
               )
             })}
+            <div className="comment-reaction-picker-shell">
+              <button
+                type="button"
+                className={`comment-reaction-trigger${reactionPickerId === comment.id ? " is-active" : ""}`}
+                aria-expanded={reactionPickerId === comment.id}
+                aria-label="添加表情回应"
+                onClick={() => onToggleReactionPicker(comment)}
+              >
+                <SmilePlus aria-hidden="true" /><span>回应</span>
+              </button>
+            </div>
+            {reactionPickerId === comment.id ? (
+              <div className="comment-reaction-picker" role="menu" aria-label="选择回应表情">
+                {commentReactionOptions.map((option) => {
+                  const reaction = comment.reactions.find((item) => item.kind === option.kind)
+                  const busy = busyInteraction === `${comment.id}:${option.kind}`
+                  return (
+                    <button
+                      type="button"
+                      className={reaction?.active ? "is-active" : ""}
+                      role="menuitemcheckbox"
+                      aria-checked={reaction?.active || false}
+                      aria-label={option.label}
+                      title={option.label}
+                      disabled={busy}
+                      onClick={() => onInteraction(comment, option.kind)}
+                      key={option.kind}
+                    >
+                      {busy ? <LoaderCircle className="spin" aria-hidden="true" /> : <span className="comment-emoji" aria-hidden="true">{option.emoji}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            ) : null}
           </div>
         </footer>
 
@@ -202,8 +229,10 @@ function CommentThreadNode({
               node={child}
               depth={depth + 1}
               replyingTo={replyingTo}
+              reactionPickerId={reactionPickerId}
               busyInteraction={busyInteraction}
               onReply={onReply}
+              onToggleReactionPicker={onToggleReactionPicker}
               onInteraction={onInteraction}
               renderReplyForm={renderReplyForm}
               key={child.comment.id}
@@ -232,6 +261,7 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
   const [threadMessage, setThreadMessage] = useState("")
   const [threadError, setThreadError] = useState("")
   const [busyInteraction, setBusyInteraction] = useState("")
+  const [reactionPickerId, setReactionPickerId] = useState<number | null>(null)
 
   const endpoint = useMemo(() => `/api/comments?scope=${scope}&target=${encodeURIComponent(target)}`, [scope, target])
   const threads = useMemo(() => buildCommentTree(comments), [comments])
@@ -303,6 +333,7 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
   }
 
   function startReply(comment: PublicComment) {
+    setReactionPickerId(null)
     if (replyingTo === comment.id) {
       setReplyingTo(null)
       setReplyError("")
@@ -345,6 +376,7 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
     const busyKey = `${comment.id}:${kind}`
     if (busyInteraction) return
     setBusyInteraction(busyKey)
+    setReactionPickerId(null)
     setThreadError("")
     setThreadMessage("")
     try {
@@ -457,8 +489,10 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
                 node={node}
                 depth={0}
                 replyingTo={replyingTo}
+                reactionPickerId={reactionPickerId}
                 busyInteraction={busyInteraction}
                 onReply={startReply}
+                onToggleReactionPicker={(comment) => setReactionPickerId((current) => current === comment.id ? null : comment.id)}
                 onInteraction={(comment, kind) => void toggleInteraction(comment, kind)}
                 renderReplyForm={renderReplyForm}
               />
