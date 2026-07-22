@@ -14,7 +14,7 @@ export default function LinksPage() {
     <SiteFrame
       eyebrow="LINKS / 个人链接"
       title="在别处找到我"
-      description="这些是从旧博客资料中迁移过来的个人主页与联系方式。"
+      description="我的个人主页、联系方式与常用站外入口。"
     >
       <section className="link-group" aria-labelledby="personal-links-title">
         <header>

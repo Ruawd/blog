@@ -987,11 +987,11 @@ a {
   min-height: 218px;
   padding: 28px 6px;
   border-bottom: 1px solid var(--border);
-  transition: padding 200ms ease-out, background 200ms ease-out;
+  transition: background-color 200ms ease-out;
 }
 
-.post-card:hover {
-  padding-inline: 20px;
+.post-card:hover,
+.post-card:focus-within {
   background: rgba(23, 24, 20, 0.035);
 }
 
@@ -1027,11 +1027,13 @@ a {
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 16 / 9;
+  aspect-ratio: 2 / 1;
   object-fit: cover;
   transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
+.post-card:hover .post-cover,
+.post-card:focus-within .post-cover,
 .post-cover-link:hover .post-cover {
   transform: scale(1.025);
 }
@@ -2116,7 +2118,9 @@ a {
 }
 
 .post-copy h3 a:hover,
-.post-copy h3 a:focus-visible {
+.post-copy h3 a:focus-visible,
+.post-card:hover .post-copy h3 a,
+.post-card:focus-within .post-copy h3 a {
   color: var(--lime);
   text-decoration: underline;
 }
@@ -2139,6 +2143,12 @@ a {
 .post-read-link svg {
   width: 14px;
   height: 14px;
+  transition: transform 180ms ease-out;
+}
+
+.post-card:hover .post-read-link svg,
+.post-card:focus-within .post-read-link svg {
+  transform: translateX(3px);
 }
 
 .article-page {
@@ -2895,7 +2905,8 @@ a {
 @media (prefers-reduced-motion: reduce) {
   .home-title span,
   .home-eyebrow span,
-  .post-cover {
+  .post-cover,
+  .post-read-link svg {
     transform: none !important;
     transition: none !important;
     animation: none !important;

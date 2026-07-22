@@ -43,7 +43,7 @@ export default function SupportPage() {
         <header className="page-section-heading">
           <p className="section-kicker">PAYMENT METHODS</p>
           <h2 id="support-methods-title">选择一种方式</h2>
-          <p>二维码已从原博客迁移，请以扫码后显示的收款方信息为准。</p>
+          <p>付款前请核对扫码后显示的收款方信息。</p>
         </header>
 
         <div className="support-grid">

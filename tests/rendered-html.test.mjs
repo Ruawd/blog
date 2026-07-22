@@ -21,7 +21,7 @@ async function render(pathname) {
   )
 }
 
-test("renders the migrated site identity and real blog index", async () => {
+test("renders the site identity and real blog index", async () => {
   const [homeResponse, blogResponse] = await Promise.all([render("/"), render("/blog")])
   assert.equal(homeResponse.status, 200)
   assert.equal(blogResponse.status, 200)
@@ -53,10 +53,17 @@ test("renders the migrated site identity and real blog index", async () => {
   assert.match(blog, /AWS Lightsail JP \$5测试/)
   assert.match(blog, /Stalwart Mail Server 安装与初步配置教程/)
   assert.match(blog, /class="post-cover"/)
+  assert.match(blog, /width="800" height="400"/)
+  assert.match(blog, /dateTime="2026-06-26"/)
+  assert.match(blog, /VPS 测评/)
+  assert.match(blog, /VPS测评/)
+  assert.match(blog, /class="post-tags" aria-label="文章标签"/)
+  assert.match(blog, /技术实践、VPS 测评与数字生活记录。/)
+  assert.doesNotMatch(blog, /迁移自原来的 Firefly 博客/)
   assert.doesNotMatch(blog, /这里暂时放着一些文章样稿/)
 })
 
-test("renders a migrated article detail route", async () => {
+test("renders an article detail route", async () => {
   const [response, coverResponse] = await Promise.all([
     render("/blog/memos-casdoor-oauth-login"),
     render("/blog/aws-lightsail-jp-5-review"),
@@ -68,6 +75,15 @@ test("renders a migrated article detail route", async () => {
   assert.match(html, /在 Memos 中接入 Casdoor 登录并获取用户信息/)
   assert.match(html, /Casdoor Application 配置/)
   assert.match(coverHtml, /class="article-cover"/)
+})
+
+test("keeps blog hover feedback layout-stable", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8")
+  assert.match(styles, /aspect-ratio: 2 \/ 1;/)
+  assert.match(styles, /transition: background-color 200ms ease-out;/)
+  assert.doesNotMatch(styles, /\.post-card:hover\s*\{[^}]*padding-inline:/)
+  assert.match(styles, /\.post-card:hover \.post-cover/)
+  assert.match(styles, /\.post-card:hover \.post-read-link svg/)
 })
 
 test("keeps the protected article encrypted in generated source", async () => {

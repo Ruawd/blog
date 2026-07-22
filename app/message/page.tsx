@@ -25,8 +25,8 @@ export default function MessagePage() {
       <section className="empty-state guestbook-empty" aria-labelledby="guestbook-title">
         <MessageSquareText aria-hidden="true" />
         <p className="section-kicker">GUESTBOOK</p>
-        <h2 id="guestbook-title">留言功能正在迁移</h2>
-        <p>旧博客的留言页说明已经保留，但评论服务暂未接入这个新站点。</p>
+        <h2 id="guestbook-title">留言功能准备中</h2>
+        <p>评论服务暂未接入，在此之前可以先通过邮件和我交流。</p>
         <ul>
           {notes.map((note) => <li key={note}>{note}</li>)}
         </ul>

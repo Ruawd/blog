@@ -15,7 +15,7 @@ export default function FriendsPage() {
     <SiteFrame
       eyebrow="NEIGHBORS / FRIENDS"
       title="友链"
-      description="把旧博客里收藏的网络邻居原样带到这里。"
+      description="在互联网上遇见的朋友与值得常去的网站。"
     >
       <section className="page-section" aria-labelledby="friends-title">
         <div className="page-section-heading">
@@ -23,7 +23,7 @@ export default function FriendsPage() {
             <p className="section-kicker">GOOD PLACES</p>
             <h2 id="friends-title">值得拜访的邻居</h2>
           </div>
-          <p>友链名称、介绍和地址均迁移自原博客。</p>
+          <p>欢迎沿着这些链接，拜访互联网里的好邻居。</p>
         </div>
 
         <div className="friend-grid">

@@ -23,10 +23,10 @@ export default function AboutMePage() {
           <h2 id="about-story-title">记录技术实践，也记录真实使用体验。</h2>
           <p>
             这里主要整理自建服务、服务器部署、VPS 测评和实际使用中遇到的问题。
-            文章从原来的 Firefly 博客迁移而来，并继续在这个 Next.js 站点更新。
+            也会记录数字生活里值得留下的片段，以及亲自用过之后的真实感受。
           </p>
           <p>
-            旧站自 2025 年 10 月 22 日开始记录。迁移后，原文的发布时间、分类、标签、配图和密码保护均被保留。
+            从 2025 年 10 月 22 日开始记录，希望这些踩坑过程和使用体验也能帮到后来的人。
           </p>
           <div className="about-contact-links">
             <a href={siteConfig.github} target="_blank" rel="noreferrer"><Code2 aria-hidden="true" />GitHub</a>

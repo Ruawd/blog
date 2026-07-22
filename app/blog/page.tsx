@@ -22,7 +22,7 @@ export default function BlogPage() {
     <SiteFrame
       eyebrow="JOURNAL / BLOG"
       title="博客"
-      description="迁移自原来的 Firefly 博客，保留文章的发布日期、分类、标签与正文。"
+      description="技术实践、VPS 测评与数字生活记录。"
     >
       <section className="page-section" aria-labelledby="latest-posts-title">
         <div className="page-section-heading">
@@ -62,8 +62,8 @@ export default function BlogPage() {
                     className="post-cover"
                     src={post.image}
                     alt=""
-                    width={640}
-                    height={360}
+                    width={800}
+                    height={400}
                     loading={index < 3 ? "eager" : "lazy"}
                     referrerPolicy="strict-origin-when-cross-origin"
                   />
