@@ -2263,7 +2263,8 @@ a {
   margin: 0 auto clamp(42px, 7vw, 72px);
   border: 1px solid var(--border);
   background: var(--surface-soft);
-  object-fit: contain;
+  object-fit: cover;
+  object-position: center;
 }
 
 .article-prose {

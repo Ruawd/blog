@@ -92,10 +92,13 @@ test("keeps blog hover feedback layout-stable", async () => {
 
 test("keeps article pages compact and readable", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8")
+  const articleCoverRule = styles.match(/\.article-cover\s*\{([^}]*)\}/)?.[1] ?? ""
   assert.match(styles, /\.article-shell \.page-hero-copy h1/)
   assert.match(styles, /font-size: clamp\(2\.75rem, 5\.25vw, 5\.75rem\);/)
   assert.match(styles, /line-height: 1\.08;/)
   assert.match(styles, /max-height: min\(54svh, 560px\);/)
+  assert.match(articleCoverRule, /object-fit: cover;/)
+  assert.doesNotMatch(articleCoverRule, /object-fit: contain;/)
 })
 
 test("keeps the protected article encrypted in generated source", async () => {
