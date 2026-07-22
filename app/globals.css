@@ -1434,16 +1434,31 @@ a {
   column-gap: 12px;
 }
 
-.album-card {
-  position: relative;
+.album-item {
   display: inline-block;
   width: 100%;
   margin: 0 0 12px;
+  break-inside: avoid;
+  vertical-align: top;
+}
+
+.album-card {
+  position: relative;
+  margin: 0;
   overflow: hidden;
   border: 1px solid var(--border);
   background: var(--surface-soft);
-  break-inside: avoid;
-  vertical-align: top;
+  transition: border-color 220ms ease-out, box-shadow 220ms ease-out;
+}
+
+.album-card:hover,
+.album-card:focus-within {
+  border-color: rgba(17, 17, 17, 0.38);
+  box-shadow: 0 14px 36px rgba(17, 17, 17, 0.08);
+}
+
+.album-card [role="region"] {
+  border-radius: 0;
 }
 
 .album-card img {
@@ -2403,7 +2418,7 @@ a {
     column-gap: 8px;
   }
 
-  .album-card { margin-bottom: 8px; }
+  .album-item { margin-bottom: 8px; }
 
   .album-card figcaption {
     min-height: 40px;
