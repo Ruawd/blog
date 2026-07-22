@@ -28,17 +28,30 @@ test("renders the migrated site identity and real blog index", async () => {
 
   const [home, blog] = await Promise.all([homeResponse.text(), blogResponse.text()])
   assert.match(home, /Ruawd/)
+  assert.match(home, /\/blog-media\/profile\/avatar\.avif/)
+  assert.match(home, /主页背景风格预览/)
+  assert.match(home, /柔光/)
+  assert.match(home, /粒子/)
+  assert.match(home, /流星/)
+  assert.match(home, /波纹/)
   assert.match(blog, /AWS Lightsail JP \$5测试/)
   assert.match(blog, /Stalwart Mail Server 安装与初步配置教程/)
+  assert.match(blog, /class="post-cover"/)
   assert.doesNotMatch(blog, /这里暂时放着一些文章样稿/)
 })
 
 test("renders a migrated article detail route", async () => {
-  const response = await render("/blog/memos-casdoor-oauth-login")
+  const [response, coverResponse] = await Promise.all([
+    render("/blog/memos-casdoor-oauth-login"),
+    render("/blog/aws-lightsail-jp-5-review"),
+  ])
   assert.equal(response.status, 200)
+  assert.equal(coverResponse.status, 200)
   const html = await response.text()
+  const coverHtml = await coverResponse.text()
   assert.match(html, /在 Memos 中接入 Casdoor 登录并获取用户信息/)
   assert.match(html, /Casdoor Application 配置/)
+  assert.match(coverHtml, /class="article-cover"/)
 })
 
 test("keeps the protected article encrypted in generated source", async () => {
@@ -48,6 +61,8 @@ test("keeps the protected article encrypted in generated source", async () => {
   )
   assert.match(generated, /"protected": true/)
   assert.match(generated, /"algorithm": "AES-GCM"/)
+  assert.match(generated, /https:\/\/i\.111666\.best\/image\//)
+  assert.doesNotMatch(generated, /\/blog-media\/remote\//)
   assert.doesNotMatch(generated, /cjaww20040521/)
 })
 

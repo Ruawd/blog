@@ -1,6 +1,8 @@
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
+import { ResilientImage } from "@/components/resilient-image"
+
 type ArticleMarkdownProps = {
   content: string
 }
@@ -24,11 +26,14 @@ export function ArticleMarkdown({ content }: ArticleMarkdownProps) {
               </a>
             )
           },
-          img: ({ alt, ...props }) => (
-            // Markdown image dimensions are not known at build time.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img alt={alt || "文章配图"} loading="lazy" {...props} />
-          ),
+          img: ({ alt, src }) => src ? (
+            <ResilientImage
+              alt={alt || "文章配图"}
+              loading="lazy"
+              referrerPolicy="strict-origin-when-cross-origin"
+              src={src}
+            />
+          ) : null,
         }}
       >
         {content}

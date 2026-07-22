@@ -1,11 +1,11 @@
 import type { Metadata } from "next"
-import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft, ArrowUpRight, CalendarDays, Clock3, LockKeyhole } from "lucide-react"
 import { notFound } from "next/navigation"
 
 import { ArticleMarkdown } from "@/components/article-markdown"
 import { ProtectedArticle } from "@/components/protected-article"
+import { ResilientImage } from "@/components/resilient-image"
 import { SiteFrame } from "@/components/site-frame"
 import { blogPosts, getBlogPost } from "@/lib/blog-posts.generated"
 
@@ -75,15 +75,14 @@ export default async function BlogPostPage({
         </header>
 
         {post.image ? (
-          <Image
+          <ResilientImage
             className="article-cover"
             src={post.image}
             alt=""
             width={1600}
             height={900}
-            sizes="(max-width: 900px) 100vw, 900px"
-            priority
-            unoptimized
+            fetchPriority="high"
+            referrerPolicy="strict-origin-when-cross-origin"
           />
         ) : null}
 

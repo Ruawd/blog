@@ -1,6 +1,5 @@
 import {
   createCipheriv,
-  createHash,
   pbkdf2Sync,
   randomBytes,
 } from "node:crypto"
@@ -24,13 +23,13 @@ if (!sourceRoot) {
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const sourcePosts = path.join(sourceRoot, "src", "content", "posts")
 const publicMedia = path.join(projectRoot, "public", "blog-media")
-const remoteMedia = path.join(publicMedia, "remote")
 const generatedFile = path.join(projectRoot, "lib", "blog-posts.generated.ts")
 const excludedSlugs = new Set(["encrypted-demo", "markdown-plantuml"])
-const downloaded = new Map()
-const downloadFailures = []
-
-await mkdir(remoteMedia, { recursive: true })
+const unavailableRemoteImages = new Set([
+  "https://sls.ruawd.top/uploads/20251117/41d19079b12717938a8a1af9ea5e47e6.webp",
+  "https://sls.ruawd.top/uploads/20251117/a73d8291ff8139fa4f9686cc558cf366.webp",
+  "https://sls.ruawd.top/uploads/20251117/e3517ddb81e22edc764c56019a46b36d.webp",
+])
 
 function unquote(value) {
   const trimmed = value.trim()
@@ -83,61 +82,6 @@ function parseFrontmatter(source) {
   return { data, content: match[2].trim() }
 }
 
-function mediaExtension(contentType, url) {
-  const normalized = contentType?.split(";")[0].trim().toLowerCase()
-  const byType = {
-    "image/avif": ".avif",
-    "image/gif": ".gif",
-    "image/jpeg": ".jpg",
-    "image/png": ".png",
-    "image/svg+xml": ".svg",
-    "image/webp": ".webp",
-  }
-  if (byType[normalized]) return byType[normalized]
-
-  const extension = path.extname(new URL(url).pathname).toLowerCase()
-  return extension && extension.length <= 6 ? extension : ".img"
-}
-
-async function localizeRemoteImage(url) {
-  if (downloaded.has(url)) return downloaded.get(url)
-
-  const hash = createHash("sha256").update(url).digest("hex").slice(0, 20)
-  const cachedFile = (await readdir(remoteMedia)).find((name) => name.startsWith(`${hash}.`))
-  if (cachedFile) {
-    const publicPath = `/blog-media/remote/${cachedFile}`
-    downloaded.set(url, publicPath)
-    return publicPath
-  }
-
-  try {
-    const response = await fetch(url, {
-      headers: { "user-agent": "Ruawd-Blog-Migration/1.0" },
-      redirect: "follow",
-    })
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-
-    const contentType = response.headers.get("content-type")
-    if (!contentType?.startsWith("image/")) {
-      throw new Error(`Unexpected content type: ${contentType || "unknown"}`)
-    }
-
-    const extension = mediaExtension(contentType, url)
-    const filename = `${hash}${extension}`
-    const target = path.join(remoteMedia, filename)
-    await writeFile(target, Buffer.from(await response.arrayBuffer()))
-
-    const publicPath = `/blog-media/remote/${filename}`
-    downloaded.set(url, publicPath)
-    return publicPath
-  } catch (error) {
-    downloadFailures.push(`${url} (${error.message})`)
-    const fallback = "/blog-media/image-unavailable.svg"
-    downloaded.set(url, fallback)
-    return fallback
-  }
-}
-
 async function rewriteMarkdownImages(markdown) {
   const pattern = /(!\[[^\]]*\]\()([^\s)]+)(\))/g
   const matches = [...markdown.matchAll(pattern)]
@@ -147,8 +91,8 @@ async function rewriteMarkdownImages(markdown) {
     const original = match[2]
     let replacement = original
 
-    if (/^https?:\/\//i.test(original)) {
-      replacement = await localizeRemoteImage(original)
+    if (unavailableRemoteImages.has(original)) {
+      replacement = "/blog-media/image-unavailable.svg"
     } else if (original.startsWith("../../assets/images/")) {
       replacement = `/blog-media/assets/${original.slice("../../assets/images/".length)}`
     }
@@ -281,6 +225,8 @@ await writeFile(generatedFile, generated, "utf8")
 console.log(JSON.stringify({
   posts: posts.length,
   protectedPosts: posts.filter((post) => post.protected).length,
-  localizedImages: [...downloaded.values()].filter((value) => value.startsWith("/blog-media/")).length,
-  downloadFailures,
+  remoteImagesPreserved: posts.reduce(
+    (count, post) => count + ((post.content || "").match(/https:\/\/i\.111666\.best\/image\//g)?.length || 0),
+    0,
+  ),
 }, null, 2))

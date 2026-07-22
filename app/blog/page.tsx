@@ -3,6 +3,7 @@ import Link from "next/link"
 import { ArrowRight, LockKeyhole } from "lucide-react"
 
 import { SiteFrame } from "@/components/site-frame"
+import { ResilientImage } from "@/components/resilient-image"
 import { blogPosts } from "@/lib/blog-posts.generated"
 
 export const metadata: Metadata = {
@@ -49,6 +50,25 @@ export default function BlogPage() {
                 </h3>
                 <p>{post.description}</p>
               </div>
+
+              {post.image ? (
+                <Link
+                  className="post-cover-link"
+                  href={`/blog/${post.slug}`}
+                  aria-label={`阅读《${post.title}》`}
+                  tabIndex={-1}
+                >
+                  <ResilientImage
+                    className="post-cover"
+                    src={post.image}
+                    alt=""
+                    width={640}
+                    height={360}
+                    loading={index < 3 ? "eager" : "lazy"}
+                    referrerPolicy="strict-origin-when-cross-origin"
+                  />
+                </Link>
+              ) : null}
 
               <footer className="post-footer">
                 <ul className="post-tags" aria-label="文章标签">
