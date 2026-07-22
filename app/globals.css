@@ -133,12 +133,6 @@ a {
   flex: 0 0 auto;
   border: 1px solid rgba(17, 17, 17, 0.16);
   object-fit: cover;
-  animation: brand-avatar-cut 360ms steps(6, end) both;
-}
-
-@keyframes brand-avatar-cut {
-  from { clip-path: inset(0 100% 0 0); transform: translateX(-5px); }
-  to { clip-path: inset(0); transform: translateX(0); }
 }
 
 .desktop-nav {
@@ -3947,11 +3941,10 @@ a {
 .home-avatar-frame {
   position: relative;
   overflow: hidden;
-  padding: 12px;
-  border: 1px solid rgba(17, 17, 17, 0.2);
-  background: rgba(255, 255, 255, 0.78);
+  padding: 0;
+  border: 0;
+  background: transparent;
   box-shadow: 0 28px 90px rgba(17, 17, 17, 0.14);
-  backdrop-filter: blur(16px);
 }
 
 .home-avatar-only {
@@ -3963,7 +3956,7 @@ a {
   position: relative;
   display: block;
   overflow: hidden;
-  background: #111;
+  background: transparent;
   isolation: isolate;
   user-select: none;
 }
@@ -3974,8 +3967,22 @@ a {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0;
+  z-index: 0;
+  opacity: 0.16;
+  filter: grayscale(1) blur(18px) contrast(0.82);
+  transform: scale(1.08);
   pointer-events: none;
+  will-change: opacity, filter, transform;
+}
+
+.magic-pixel-image[data-ready="true"] .magic-pixel-source {
+  opacity: 1;
+  filter: grayscale(0) blur(0) contrast(1);
+  transform: scale(1);
+  transition:
+    opacity 360ms ease 2640ms,
+    filter 360ms ease 2640ms,
+    transform 360ms cubic-bezier(0.16, 1, 0.3, 1) 2640ms;
 }
 
 .magic-pixel-grid {
@@ -3994,9 +4001,9 @@ a {
   opacity: 0;
   transform: translate3d(var(--pixel-x), var(--pixel-y), 0) rotate(var(--pixel-rotate)) scale(0.72);
   transition:
-    opacity 1ms steps(1, end) var(--pixel-delay),
-    filter 280ms ease-out calc(var(--pixel-delay) + 120ms),
-    transform 380ms cubic-bezier(0.16, 1, 0.3, 1) var(--pixel-delay);
+    opacity 90ms steps(3, end) var(--pixel-delay),
+    filter 960ms ease-out calc(var(--pixel-delay) + 180ms),
+    transform 1240ms cubic-bezier(0.16, 1, 0.3, 1) var(--pixel-delay);
   will-change: transform, opacity;
 }
 
@@ -4004,19 +4011,6 @@ a {
   filter: grayscale(0) contrast(1);
   opacity: 1;
   transform: translate3d(0, 0, 0) rotate(0) scale(1);
-}
-
-.magic-pixel-scan {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  background: #111;
-  transform: translateX(0);
-  will-change: transform;
-}
-
-.magic-pixel-image[data-ready="true"] .magic-pixel-scan {
-  animation: magic-pixel-scan 480ms cubic-bezier(0.76, 0, 0.24, 1) 80ms both;
 }
 
 .home-avatar-copy {
@@ -4040,11 +4034,11 @@ a {
 }
 
 .home-avatar-stage[data-ready="true"] .home-avatar-name > span {
-  animation: home-avatar-copy-cut 360ms cubic-bezier(0.16, 1, 0.3, 1) 300ms both;
+  animation: home-avatar-copy-cut 460ms cubic-bezier(0.16, 1, 0.3, 1) 2550ms both;
 }
 
 .home-avatar-stage[data-ready="true"] .home-avatar-note > span {
-  animation: home-avatar-copy-cut 400ms cubic-bezier(0.16, 1, 0.3, 1) 355ms both;
+  animation: home-avatar-copy-cut 480ms cubic-bezier(0.16, 1, 0.3, 1) 2660ms both;
 }
 
 .home-avatar-name {
@@ -4057,11 +4051,6 @@ a {
   color: #5f5f5f;
   font-size: 13px;
   letter-spacing: 0.04em;
-}
-
-@keyframes magic-pixel-scan {
-  0%, 18% { transform: translateX(0); }
-  100% { transform: translateX(104%); }
 }
 
 @keyframes home-avatar-copy-cut {
@@ -4260,10 +4249,6 @@ a {
     width: clamp(156px, 48vw, 198px);
   }
 
-  .home-avatar-frame {
-    padding: 9px;
-  }
-
   .home-hero-actions {
     width: min(100%, 320px);
   }
@@ -4306,11 +4291,17 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .brand-avatar,
-  .magic-pixel-scan,
+  .magic-pixel-source,
   .home-avatar-name > span,
   .home-avatar-note > span {
     animation: none !important;
+  }
+
+  .magic-pixel-source {
+    opacity: 1;
+    filter: none;
+    transform: none;
+    transition: none;
   }
 
   .magic-pixel-grid i {
@@ -4320,7 +4311,6 @@ a {
     transform: none;
   }
 
-  .magic-pixel-scan { display: none; }
   .home-avatar-name > span,
   .home-avatar-note > span { transform: none; }
 

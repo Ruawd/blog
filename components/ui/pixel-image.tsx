@@ -30,7 +30,7 @@ function createPixelStyle(index: number, rows: number, columns: number, src: str
   const distance = Math.hypot(column - centerX, row - centerY)
   const maximumDistance = Math.hypot(centerX, centerY) || 1
   const directionalSeed = (index * 37 + row * 17 + column * 11) % 9
-  const delay = 50 + (distance / maximumDistance) * 150 + directionalSeed * 9
+  const delay = 80 + (distance / maximumDistance) * 1540 + directionalSeed * 20
   const xDirection = column < centerX ? -1 : 1
   const yDirection = row < centerY ? -1 : 1
   const backgroundX = columns === 1 ? 0 : (column / (columns - 1)) * 100
@@ -106,7 +106,6 @@ export function PixelImage({
       <span className="magic-pixel-grid" aria-hidden="true">
         {pieces.map((style, index) => <i style={style} key={index} />)}
       </span>
-      <span className="magic-pixel-scan" aria-hidden="true" />
     </div>
   )
 }
