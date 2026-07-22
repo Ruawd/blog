@@ -248,11 +248,11 @@ a {
   transform: perspective(900px) rotateX(58deg) translateY(6%);
   border: 0 !important;
   opacity: 0.52;
-  mask-image: radial-gradient(ellipse 78% 72% at 50% 51%, #000 28%, rgba(0, 0, 0, 0.72) 72%, rgba(0, 0, 0, 0.24) 100%);
 }
 
 .interactive-grid-cell {
   fill: transparent;
+  pointer-events: all;
   transition: fill 680ms ease-out;
 }
 
@@ -899,7 +899,6 @@ a {
   transform: perspective(800px) rotateX(60deg) translateY(16%);
   border: 0 !important;
   opacity: 0.28;
-  mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent);
 }
 
 .page-hero-copy {
