@@ -2940,6 +2940,12 @@ a {
   gap: clamp(38px, 5vw, 58px);
 }
 
+.home-avatar-stage {
+  display: grid;
+  justify-items: center;
+  gap: 22px;
+}
+
 .home-avatar-frame {
   position: relative;
   overflow: hidden;
@@ -2957,7 +2963,87 @@ a {
   height: auto;
   aspect-ratio: 1;
   border-radius: 22%;
+  filter: blur(14px) grayscale(0.2);
   object-fit: cover;
+  opacity: 0;
+  transform: scale(1.075);
+  transition: filter 460ms ease-out, opacity 320ms ease-out, transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.home-avatar-stage[data-ready="true"] .home-avatar-only {
+  filter: blur(0) grayscale(0);
+  opacity: 1;
+  transform: scale(1);
+}
+
+.home-avatar-loader {
+  position: absolute;
+  inset: 12px;
+  z-index: 2;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  border-radius: 22%;
+  background: rgba(247, 247, 247, 0.92);
+  color: #111;
+  transition: opacity 220ms ease-in, visibility 220ms step-end;
+}
+
+.home-avatar-stage[data-ready="true"] .home-avatar-loader {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.home-avatar-loader-ring {
+  width: 42px;
+  height: 42px;
+  border: 1px solid rgba(17, 17, 17, 0.16);
+  border-top-color: #111;
+  border-radius: 50%;
+  animation: home-avatar-spin 720ms linear infinite;
+}
+
+.home-avatar-loader-label {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+}
+
+.home-avatar-copy {
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 320ms ease-out 70ms, transform 360ms cubic-bezier(0.22, 1, 0.36, 1) 70ms;
+}
+
+.home-avatar-stage[data-ready="true"] .home-avatar-copy {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.home-avatar-name,
+.home-avatar-note {
+  margin: 0;
+}
+
+.home-avatar-name {
+  font-size: clamp(1.45rem, 2.3vw, 2rem);
+  font-weight: 650;
+  letter-spacing: -0.035em;
+}
+
+.home-avatar-note {
+  color: #5f5f5f;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+}
+
+@keyframes home-avatar-spin {
+  to { transform: rotate(360deg); }
 }
 
 .home-hero-actions {
@@ -3197,6 +3283,16 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .home-avatar-only,
+  .home-avatar-loader,
+  .home-avatar-copy {
+    transition: none;
+  }
+
+  .home-avatar-loader-ring {
+    animation: none;
+  }
+
   .home-hero-action,
   .home-scroll-link,
   .home-feature-card,

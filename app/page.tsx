@@ -1,4 +1,3 @@
-import Image from "next/image"
 import Link from "next/link"
 import {
   ArrowRight,
@@ -13,11 +12,10 @@ import {
   UsersRound,
 } from "lucide-react"
 
+import { HomeAvatar } from "@/components/home-avatar"
 import { HomeParticleBackground } from "@/components/home-background-switcher"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
-import { BorderBeam } from "@/components/ui/border-beam"
-import { siteConfig } from "@/lib/site"
 
 const heroActions = [
   { label: "阅读博客", href: "/blog", icon: BookOpen, primary: true },
@@ -80,7 +78,7 @@ const featureLinks = [
 
 export default function Home() {
   return (
-    <div className="site-shell home-shell" data-home-layout="two-x-inspired-v3">
+    <div className="site-shell home-shell" data-home-layout="two-x-inspired-v4">
       <a className="skip-link" href="#main">跳到主要内容</a>
       <SiteHeader showBrand={false} />
       <main id="main" className="home-main">
@@ -89,24 +87,7 @@ export default function Home() {
 
           <div className="home-landing-inner">
             <h1 className="sr-only" id="home-title">Ruawd</h1>
-            <div className="home-avatar-frame">
-              <Image
-                className="home-avatar-only"
-                src={siteConfig.avatar}
-                alt="Ruawd 的头像"
-                width={320}
-                height={320}
-                priority
-                unoptimized
-              />
-              <BorderBeam
-                size={90}
-                duration={8}
-                colorFrom="#111111"
-                colorTo="#b7b7b7"
-                borderWidth={1}
-              />
-            </div>
+            <HomeAvatar />
 
             <nav className="home-hero-actions" aria-label="主页快捷入口">
               {heroActions.map((item) => {
