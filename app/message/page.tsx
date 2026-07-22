@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { ArrowUpRight } from "lucide-react"
 
 import { SiteFrame } from "@/components/site-frame"
 import { siteConfig } from "@/lib/site"
@@ -48,7 +49,7 @@ export default function MessagePage() {
           </p>
           <a href={`mailto:${siteConfig.email}?subject=${encodeURIComponent("来自个人网站的留言")}`}>
             发一封邮件
-            <span aria-hidden="true">↗</span>
+            <ArrowUpRight aria-hidden="true" />
           </a>
           <small>请不要在公开留言中留下电话、住址等敏感信息。</small>
         </aside>

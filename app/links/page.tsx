@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { ArrowUpRight } from "lucide-react"
 
 import { SiteFrame } from "@/components/site-frame"
 
@@ -123,7 +124,7 @@ export default function LinksPage() {
                 >
                   <span className="link-card-title">
                     <strong>{link.name}</strong>
-                    <span aria-hidden="true">↗</span>
+                    <ArrowUpRight aria-hidden="true" />
                   </span>
                   <span className="link-card-description">{link.description}</span>
                   <span className="link-card-domain">{link.domain}</span>

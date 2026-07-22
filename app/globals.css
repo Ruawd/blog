@@ -734,7 +734,21 @@ a {
 }
 
 .site-footer > a:last-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   justify-self: end;
+}
+
+.site-footer > a:last-child svg,
+.guestbook-note a svg,
+.friend-note a svg,
+.friend-card > a svg,
+.link-card-title svg {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  stroke-width: 1.7;
 }
 
 /* Shared navigation */
@@ -1055,14 +1069,6 @@ a {
   color: var(--muted-foreground);
   font-size: 13px;
   line-height: 1.7;
-}
-
-.friend-card::after,
-.link-card::after {
-  justify-self: end;
-  color: var(--lime);
-  content: "↗";
-  font-size: 18px;
 }
 
 .link-groups {
@@ -1494,10 +1500,9 @@ a {
   color: #a5a59e;
 }
 
-.friend-card > a span:nth-child(2),
-.link-card-title span {
+.friend-card > a svg,
+.link-card-title svg {
   color: var(--lime);
-  font-size: 16px;
 }
 
 .friend-note {

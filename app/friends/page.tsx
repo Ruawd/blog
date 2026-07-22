@@ -1,4 +1,5 @@
 import type { Metadata } from "next"
+import { ArrowUpRight } from "lucide-react"
 
 import { SiteFrame } from "@/components/site-frame"
 import { siteConfig } from "@/lib/site"
@@ -84,7 +85,7 @@ export default function FriendsPage() {
               </div>
               <a href={friend.url} target="_blank" rel="noreferrer">
                 <span>{friend.domain}</span>
-                <span aria-hidden="true">↗</span>
+                <ArrowUpRight aria-hidden="true" />
                 <span className="sr-only">，在新窗口访问{friend.name}</span>
               </a>
             </article>
@@ -99,7 +100,7 @@ export default function FriendsPage() {
           <p>来信时请附上网站名称、地址、一句话介绍和头像链接。我会在访问后尽快回复。</p>
           <a href={`mailto:${siteConfig.email}?subject=${encodeURIComponent("交换友链")}`}>
             发邮件申请
-            <span aria-hidden="true">↗</span>
+            <ArrowUpRight aria-hidden="true" />
           </a>
         </aside>
       </section>

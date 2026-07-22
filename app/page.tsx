@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { ArrowRight } from "lucide-react"
 
 import { BorderBeam } from "@/components/ui/border-beam"
 import { InteractiveGridPattern } from "@/components/ui/interactive-grid-pattern"
@@ -48,14 +49,14 @@ export default function Home() {
 
             <div className="hero-actions">
               <Link className="hero-cta primary" href="/blog">
-                <span>阅读博客</span><span aria-hidden="true">↗</span>
+                <span>阅读博客</span><ArrowRight aria-hidden="true" />
                 <BorderBeam className="border-beam-motion" size={90} duration={7} colorFrom="#c6ff00" colorTo="#ffffff" />
               </Link>
               <Link className="hero-cta secondary" href="/message">
-                <span>给我留言</span><span aria-hidden="true">→</span>
+                <span>给我留言</span><ArrowRight aria-hidden="true" />
               </Link>
               <Link className="hero-cta ghost" href="/links">
-                <span>常用链接</span><span aria-hidden="true">→</span>
+                <span>常用链接</span><ArrowRight aria-hidden="true" />
               </Link>
             </div>
           </div>
