@@ -68,6 +68,30 @@ export const albumPhotos = sqliteTable(
   (table) => [uniqueIndex("album_photos_sort_order_unique").on(table.sortOrder)],
 )
 
+export const friendLinks = sqliteTable(
+  "friend_links",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    name: text("name").notNull(),
+    url: text("url").notNull(),
+    avatarUrl: text("avatar_url").notNull().default(""),
+    description: text("description").notNull().default(""),
+    backlinkUrl: text("backlink_url").notNull().default(""),
+    status: text("status", { enum: ["pending", "approved", "rejected", "hidden"] }).notNull().default("pending"),
+    sortOrder: integer("sort_order").notNull(),
+    reviewMessage: text("review_message").notNull().default(""),
+    lastCheckedAt: text("last_checked_at"),
+    submittedIpHash: text("submitted_ip_hash").notNull().default(""),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("friend_links_url_unique").on(table.url),
+    index("friend_links_status_order_idx").on(table.status, table.sortOrder),
+  ],
+)
+
 export const comments = sqliteTable(
   "comments",
   {

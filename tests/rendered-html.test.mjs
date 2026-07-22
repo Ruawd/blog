@@ -141,17 +141,19 @@ test("renders an article detail route with reading tools", async () => {
 })
 
 test("protects the management backend and supports draft-to-publish workflow", async () => {
-  const [adminResponse, apiResponse, bangumiApiResponse, albumApiResponse] = await Promise.all([
+  const [adminResponse, apiResponse, bangumiApiResponse, albumApiResponse, friendsApiResponse] = await Promise.all([
     request("/admin"),
     request("/api/admin/posts"),
     request("/api/admin/bangumi"),
     request("/api/admin/album"),
+    request("/api/admin/friends"),
   ])
   assert.equal(adminResponse.status, 307)
   assert.match(adminResponse.headers.get("location") ?? "", /\/admin\/login/)
   assert.equal(apiResponse.status, 401)
   assert.equal(bangumiApiResponse.status, 401)
   assert.equal(albumApiResponse.status, 401)
+  assert.equal(friendsApiResponse.status, 401)
 
   const loginResponse = await request("/api/auth/casdoor/login?return_to=/admin")
   assert.equal(loginResponse.status, 307)
@@ -176,6 +178,7 @@ test("protects the management backend and supports draft-to-publish workflow", a
   assert.match(adminHtml, /内容管理/)
   assert.match(adminHtml, /页面内容/)
   assert.match(adminHtml, /相册/)
+  assert.match(adminHtml, /友链/)
   assert.match(adminHtml, /番组 API/)
   assert.match(adminHtml, /留言与评论/)
 
@@ -353,6 +356,128 @@ test("protects the management backend and supports draft-to-publish workflow", a
   assert.match(editedAlbum, /后台新增相册图片/)
 })
 
+test("supports friend editing, ordering, deletion, and automatic review", async () => {
+  const publicResponse = await request("/friends")
+  assert.equal(publicResponse.status, 200)
+  const publicHtml = await publicResponse.text()
+  assert.match(publicHtml, /申请友链/)
+  assert.match(publicHtml, /提交并自动审核/)
+  assert.match(publicHtml, /双向链接/)
+
+  const cookie = adminCookie()
+  const authHeaders = { cookie, origin: baseUrl, "content-type": "application/json" }
+  const initialResponse = await request("/api/admin/friends", { headers: { cookie } })
+  assert.equal(initialResponse.status, 200)
+  const initialFriends = (await initialResponse.json()).friends
+  assert.equal(initialFriends.length, 3)
+  assert.equal(initialFriends[0].url, "https://blog.xiyy.de/")
+  assert.equal(initialFriends[1].url, "https://docs-firefly.cuteleaf.cn/")
+
+  const createResponse = await request("/api/admin/friends", {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({
+      name: "后台友链测试",
+      url: "https://admin-friend.example.com",
+      avatarUrl: "",
+      description: "由后台新增并立即公开的友链。",
+      backlinkUrl: "",
+      status: "approved",
+    }),
+  })
+  assert.equal(createResponse.status, 201)
+  const created = (await createResponse.json()).friend
+  assert.equal(created.url, "https://admin-friend.example.com/")
+
+  const createdPublicHtml = await (await request("/friends")).text()
+  assert.match(createdPublicHtml, /后台友链测试/)
+
+  const updateResponse = await request(`/api/admin/friends/${created.id}`, {
+    method: "PUT",
+    headers: authHeaders,
+    body: JSON.stringify({
+      name: "后台友链已编辑",
+      url: created.url,
+      avatarUrl: "",
+      description: "后台编辑后的友链说明。",
+      backlinkUrl: "https://admin-friend.example.com/friends",
+      status: "approved",
+    }),
+  })
+  assert.equal(updateResponse.status, 200)
+  const updated = (await updateResponse.json()).friend
+  assert.equal(updated.name, "后台友链已编辑")
+  assert.equal(updated.backlinkUrl, "https://admin-friend.example.com/friends")
+
+  const editedPublicHtml = await (await request("/friends")).text()
+  assert.match(editedPublicHtml, /后台友链已编辑/)
+  assert.doesNotMatch(editedPublicHtml, /后台友链测试/)
+
+  const moveResponse = await request(`/api/admin/friends/${created.id}/move`, {
+    method: "POST",
+    headers: authHeaders,
+    body: JSON.stringify({ direction: "up" }),
+  })
+  assert.equal(moveResponse.status, 200)
+  const movedFriends = (await moveResponse.json()).friends
+  assert.equal(movedFriends.findIndex((friend) => friend.id === created.id), initialFriends.length - 1)
+
+  const unsafeApplication = await request("/api/friend-applications", {
+    method: "POST",
+    headers: { origin: baseUrl, "content-type": "application/json", "x-forwarded-for": "198.51.100.20" },
+    body: JSON.stringify({
+      name: "本机地址",
+      url: "https://127.0.0.1/",
+      avatarUrl: "",
+      description: "不应通过 SSRF 校验。",
+      backlinkUrl: "https://127.0.0.1/friends",
+      company: "",
+    }),
+  })
+  assert.equal(unsafeApplication.status, 400)
+  assert.match(await unsafeApplication.text(), /内网|保留地址|本机/)
+
+  const pendingApplication = await request("/api/friend-applications", {
+    method: "POST",
+    headers: { origin: baseUrl, "content-type": "application/json", "x-forwarded-for": "203.0.113.20" },
+    body: JSON.stringify({
+      name: "自动审核待处理",
+      url: "https://friend-review.invalid/",
+      avatarUrl: "",
+      description: "不可解析时应保留到后台，而不是丢失申请。",
+      backlinkUrl: "https://friend-review.invalid/friends",
+      company: "",
+    }),
+  })
+  assert.equal(pendingApplication.status, 201)
+  const pending = (await pendingApplication.json()).application
+  assert.equal(pending.status, "pending")
+  assert.match(pending.reviewMessage, /无法解析|无法访问|自动审核/)
+
+  const reviewResponse = await request(`/api/admin/friends/${pending.id}/review`, {
+    method: "POST",
+    headers: { cookie, origin: baseUrl },
+  })
+  assert.equal(reviewResponse.status, 200)
+  const reviewed = await reviewResponse.json()
+  assert.equal(reviewed.review.approved, false)
+  assert.equal(reviewed.friend.status, "pending")
+
+  const deletePendingResponse = await request(`/api/admin/friends/${pending.id}`, {
+    method: "DELETE",
+    headers: { cookie, origin: baseUrl },
+  })
+  assert.equal(deletePendingResponse.status, 200)
+  const deleteCreatedResponse = await request(`/api/admin/friends/${created.id}`, {
+    method: "DELETE",
+    headers: { cookie, origin: baseUrl },
+  })
+  assert.equal(deleteCreatedResponse.status, 200)
+
+  const finalFriends = (await (await request("/api/admin/friends", { headers: { cookie } })).json()).friends
+  assert.equal(finalFriends.length, 3)
+})
+
 test("supports guestbook messages and article-isolated comments", async () => {
   const headers = { origin: baseUrl, "content-type": "application/json" }
   const guestbookResponse = await request("/api/comments", {
@@ -425,6 +550,7 @@ test("keeps the editor responsive, stable, and free of emoji controls", async ()
   assert.match(editor, /encryptArticleContent/)
   assert.match(consoleUi, /页面内容/)
   assert.match(consoleUi, /相册/)
+  assert.match(consoleUi, /友链/)
   assert.match(consoleUi, /番组 API/)
   assert.match(consoleUi, /留言与评论/)
   assert.match(session, /httpOnly: true/)

@@ -1,9 +1,11 @@
 import type { Metadata } from "next"
 import { ArrowUpRight } from "lucide-react"
 
+import { FriendApplicationForm } from "@/components/friend-application-form"
+import { ResilientImage } from "@/components/resilient-image"
 import { SiteFrame } from "@/components/site-frame"
 import { ManagedPageBody } from "@/components/managed-page-body"
-import { friends } from "@/lib/migrated-content"
+import { listPublicFriendLinks } from "@/lib/friend-repository"
 import { getPageContent } from "@/lib/page-content"
 import { siteConfig } from "@/lib/site"
 
@@ -16,6 +18,7 @@ export const dynamic = "force-dynamic"
 
 export default async function FriendsPage() {
   const page = await getPageContent("friends")
+  const friends = listPublicFriendLinks()
   return (
     <SiteFrame
       eyebrow={page.eyebrow}
@@ -36,8 +39,11 @@ export default async function FriendsPage() {
           {friends.map((friend, index) => (
             <article className="friend-card" key={friend.url}>
               <header className="friend-card-header">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img className="friend-avatar" src={friend.image} alt="" loading="lazy" />
+                {friend.avatarUrl ? (
+                  <ResilientImage className="friend-avatar" src={friend.avatarUrl} alt="" loading="lazy" decoding="async" />
+                ) : (
+                  <span className="friend-avatar friend-avatar-fallback" aria-hidden="true">{friend.name.slice(0, 1)}</span>
+                )}
                 <span className="friend-index" aria-hidden="true">
                   {String(index + 1).padStart(2, "0")}
                 </span>
@@ -60,11 +66,13 @@ export default async function FriendsPage() {
             <p className="section-kicker">EXCHANGE LINKS</p>
             <h2 id="friend-note-title">申请友链</h2>
           </div>
-          <p>请先添加本站，并附上站点名称、介绍、链接和头像。站点需支持 HTTPS、可正常访问，并以原创内容为主。</p>
-          <a href={`mailto:${siteConfig.email}?subject=${encodeURIComponent("友链申请 - [站点名称]")}`}>
-            发邮件申请<ArrowUpRight aria-hidden="true" />
+          <p>请先在你的友链页面添加本站。提交后系统会验证 HTTPS 可达性、头像与双向链接，通过后自动展示。</p>
+          <a href="#friend-application">
+            在线申请<ArrowUpRight aria-hidden="true" />
           </a>
         </aside>
+
+        <FriendApplicationForm targets={siteConfig.friendBacklinkTargets} />
       </section>
     </SiteFrame>
   )
