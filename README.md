@@ -1,98 +1,55 @@
-# vinext-starter
+# Ruawd Blog
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+一个可部署到普通 VPS/服务器的 Next.js 个人博客。前台、文章接口和管理后台位于同一个项目中，数据保存在服务器 SQLite 文件里。
 
-## Prerequisites
+## 功能
 
-- Node.js `>=22.13.0`
+- `/blog`：公开文章列表与文章详情
+- `/admin/login`：管理员登录
+- `/admin`：新建、编辑、实时 Markdown 预览、保存草稿和发布文章
+- `/api/admin/*`：受服务端会话保护的文章管理接口
+- 原有静态文章继续保留；在后台编辑后由数据库版本覆盖
 
-## Quick Start
+## 本地运行
 
 ```bash
+cp .env.example .env.local
 npm install
 npm run dev
+```
+
+本地环境建议将 `DATABASE_PATH` 改为 `./data/blog.sqlite`，并设置：
+
+- `ADMIN_USERNAME`
+- `ADMIN_PASSWORD_HASH`（推荐）或 `ADMIN_PASSWORD`
+- 至少 32 个字符的 `SESSION_SECRET`
+- 本地 HTTP 调试时设置 `COOKIE_SECURE=false`
+
+生成密码哈希：
+
+```bash
+npm run admin:hash -- "你的强密码"
+```
+
+## Docker 部署
+
+```bash
+cp .env.example .env
+# 编辑 .env，填入管理员密码哈希和 SESSION_SECRET
+docker compose up -d --build
+```
+
+默认映射到服务器的 `3000` 端口，可通过 `.env` 中的 `APP_PORT` 修改。文章数据库保存在 Docker 卷 `blog_data` 中，更新容器不会丢失。
+
+生产环境请在容器前使用 Nginx、Caddy 等反向代理并启用 HTTPS；`COOKIE_SECURE` 保持为 `true`。
+
+## 直接使用 Node.js 部署
+
+```bash
+npm ci
 npm run build
+npm run db:migrate
+npm start
 ```
 
-This starter does not use `wrangler.jsonc`.
-
-## Included Shape
-
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
-```
-
-## Optional Dispatch-Owned ChatGPT Sign-In
-
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
-
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
-
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
-
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
-
-## Useful Commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+Node.js 版本要求 `>=22.13.0`。直接部署时请为 `data/` 目录配置持久化备份。

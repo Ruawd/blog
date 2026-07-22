@@ -1,13 +1,18 @@
-import { env } from "cloudflare:workers";
-import { drizzle } from "drizzle-orm/d1";
-import * as schema from "./schema";
+import { mkdirSync } from "node:fs"
+import { dirname, join } from "node:path"
+import { DatabaseSync } from "node:sqlite"
 
-export function getDb() {
-  if (!env.DB) {
-    throw new Error(
-      "Cloudflare D1 binding `DB` is unavailable. Set the `d1` field in .openai/hosting.json to `DB` or let your control plane inject the real binding values before using the database."
-    );
-  }
+const databasePath = process.env.DATABASE_PATH || join(process.cwd(), "data", "blog.sqlite")
 
-  return drizzle(env.DB, { schema });
+let database: DatabaseSync | null = null
+
+export function getDatabase(): DatabaseSync {
+  if (database) return database
+
+  mkdirSync(dirname(databasePath), { recursive: true })
+  database = new DatabaseSync(databasePath)
+  database.exec("PRAGMA journal_mode = WAL")
+  database.exec("PRAGMA foreign_keys = ON")
+  database.exec("PRAGMA busy_timeout = 5000")
+  return database
 }

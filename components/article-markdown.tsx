@@ -49,7 +49,7 @@ export function ArticleMarkdown({ content }: ArticleMarkdownProps) {
               </a>
             )
           },
-          img: ({ alt, src }) => src ? (
+          img: ({ alt, src }) => typeof src === "string" && src ? (
             <ResilientImage
               alt={alt || "文章配图"}
               loading="lazy"

@@ -131,7 +131,9 @@ const posts = []
 for (const filename of files) {
   const source = await readFile(path.join(sourcePosts, filename), "utf8")
   const { data, content: originalContent } = parseFrontmatter(source)
-  const slug = data.slug || filename.replace(/\.md$/, "")
+  const slug = typeof data.slug === "string" && data.slug
+    ? data.slug
+    : filename.replace(/\.md$/, "")
 
   if (excludedSlugs.has(slug) || data.category === "文章示例") continue
 
@@ -151,7 +153,9 @@ for (const filename of files) {
     image,
     tags: Array.isArray(data.tags) ? data.tags : [],
     category: data.category || "未分类",
-    sourceLink: data.sourceLink || undefined,
+    sourceLink: typeof data.sourceLink === "string" && data.sourceLink
+      ? data.sourceLink
+      : undefined,
     readingMinutes,
     protected: protectedPost,
     passwordHint: data.passwordHint || undefined,

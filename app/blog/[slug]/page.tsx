@@ -9,14 +9,9 @@ import { ProtectedArticle } from "@/components/protected-article"
 import { ResilientImage } from "@/components/resilient-image"
 import { SiteFrame } from "@/components/site-frame"
 import { extractArticleHeadings } from "@/lib/article-headings"
-import { blogPosts, getBlogPost } from "@/lib/blog-posts.generated"
+import { getPublishedBlogPost } from "@/lib/blog-repository"
 
-export const dynamic = "force-static"
-export const dynamicParams = false
-
-export function generateStaticParams() {
-  return blogPosts.map((post) => ({ slug: post.slug }))
-}
+export const dynamic = "force-dynamic"
 
 export async function generateMetadata({
   params,
@@ -24,7 +19,7 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>
 }): Promise<Metadata> {
   const { slug } = await params
-  const post = getBlogPost(slug)
+  const post = await getPublishedBlogPost(slug)
   if (!post) return {}
 
   return {
@@ -54,7 +49,7 @@ export default async function BlogPostPage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
-  const post = getBlogPost(slug)
+  const post = await getPublishedBlogPost(slug)
   if (!post) notFound()
   const headings = extractArticleHeadings(post.content || "")
 

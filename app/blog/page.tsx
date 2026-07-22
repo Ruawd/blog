@@ -4,7 +4,9 @@ import { ArrowRight, LockKeyhole } from "lucide-react"
 
 import { SiteFrame } from "@/components/site-frame"
 import { ResilientImage } from "@/components/resilient-image"
-import { blogPosts } from "@/lib/blog-posts.generated"
+import { listPublishedBlogPosts } from "@/lib/blog-repository"
+
+export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
   title: "博客",
@@ -17,7 +19,9 @@ const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
   day: "2-digit",
 })
 
-export default function BlogPage() {
+export default async function BlogPage() {
+  const blogPosts = await listPublishedBlogPosts()
+
   return (
     <SiteFrame
       eyebrow="JOURNAL / BLOG"

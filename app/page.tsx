@@ -95,7 +95,7 @@ export default function Home() {
 
                 return (
                   <Link
-                    className={item.primary ? "home-hero-action is-primary" : "home-hero-action"}
+                    className={"primary" in item && item.primary ? "home-hero-action is-primary" : "home-hero-action"}
                     href={item.href}
                     key={item.href}
                   >
@@ -124,7 +124,7 @@ export default function Home() {
 
               return (
                 <Link
-                  className={item.featured ? "home-feature-card is-featured" : "home-feature-card"}
+                  className={"featured" in item && item.featured ? "home-feature-card is-featured" : "home-feature-card"}
                   href={item.href}
                   key={item.href}
                 >
