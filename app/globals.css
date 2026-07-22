@@ -2904,3 +2904,54 @@ a {
     opacity: 1 !important;
   }
 }
+
+/* Minimal home: navigation, particles, and one centered portrait. */
+.brand-placeholder {
+  display: block;
+  width: 44px;
+  height: 44px;
+  justify-self: start;
+}
+
+.home-shell {
+  height: 100svh;
+  overflow: hidden;
+}
+
+.home-shell .home-main,
+.home-shell .home-profile {
+  height: 100%;
+}
+
+.home-shell .home-profile {
+  min-height: 100svh;
+  padding: 0 24px;
+}
+
+.home-particle-background {
+  opacity: 1;
+}
+
+.home-avatar-only {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: clamp(160px, 17vw, 256px);
+  height: auto;
+  aspect-ratio: 1;
+  border: 1px solid rgba(17, 17, 17, 0.2);
+  border-radius: 24%;
+  box-shadow: 0 24px 72px rgba(17, 17, 17, 0.14);
+  object-fit: cover;
+}
+
+@media (max-width: 640px) {
+  .home-shell .home-profile {
+    min-height: 100svh;
+    padding: 0 20px;
+  }
+
+  .home-avatar-only {
+    width: clamp(144px, 44vw, 190px);
+  }
+}

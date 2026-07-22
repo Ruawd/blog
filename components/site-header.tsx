@@ -6,7 +6,11 @@ import { ChevronDown, Menu, X } from "lucide-react"
 
 import { aboutItems, mineItems, navItems, siteConfig } from "@/lib/site"
 
-export function SiteHeader() {
+type SiteHeaderProps = {
+  showBrand?: boolean
+}
+
+export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
   const [openDesktopMenu, setOpenDesktopMenu] = useState<"mine" | "about" | null>(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const desktopNavRef = useRef<HTMLElement>(null)
@@ -95,10 +99,14 @@ export function SiteHeader() {
 
   return (
     <header className="site-header">
-      <Link className="brand" href="/" aria-label="返回主页">
-        <span className="brand-mark" aria-hidden="true">{siteConfig.initials}</span>
-        <span>{siteConfig.name}</span>
-      </Link>
+      {showBrand ? (
+        <Link className="brand" href="/" aria-label="返回主页">
+          <span className="brand-mark" aria-hidden="true">{siteConfig.initials}</span>
+          <span>{siteConfig.name}</span>
+        </Link>
+      ) : (
+        <span className="brand-placeholder" aria-hidden="true" />
+      )}
 
       <nav ref={desktopNavRef} className="desktop-nav" aria-label="主导航">
         {navItems.map((item) => (
