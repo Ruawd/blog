@@ -1057,6 +1057,7 @@ a {
   min-width: 0;
   align-items: center;
   gap: 12px;
+  padding-top: 4px;
   padding-bottom: 4px;
   overflow: hidden;
 }
