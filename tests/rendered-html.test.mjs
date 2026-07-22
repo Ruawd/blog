@@ -74,6 +74,13 @@ test("renders an article detail route", async () => {
   const coverHtml = await coverResponse.text()
   assert.match(html, /在 Memos 中接入 Casdoor 登录并获取用户信息/)
   assert.match(html, /Casdoor Application 配置/)
+  assert.match(html, /class="article-reading-layout"/)
+  assert.match(html, /class="article-toc" aria-label="文章目录"/)
+  assert.match(html, /class="article-progress"/)
+  assert.match(html, /aria-label="返回顶部"/)
+  assert.match(html, /aria-label="直达评论"/)
+  assert.match(html, /复制文章链接/)
+  assert.match(html, /id="article-comments"/)
   assert.match(coverHtml, /class="site-shell article-shell"/)
   assert.match(coverHtml, /class="article-cover"/)
 })
@@ -99,6 +106,9 @@ test("keeps article pages compact and readable", async () => {
   assert.match(styles, /max-height: min\(54svh, 560px\);/)
   assert.match(articleCoverRule, /object-fit: cover;/)
   assert.doesNotMatch(articleCoverRule, /object-fit: contain;/)
+  assert.match(styles, /\.article-toc\s*\{[\s\S]*?position: sticky;/)
+  assert.match(styles, /\.article-progress\s*\{[\s\S]*?position: fixed;/)
+  assert.match(styles, /\.article-actions\s*\{[\s\S]*?position: fixed;/)
 })
 
 test("keeps the protected article encrypted in generated source", async () => {
