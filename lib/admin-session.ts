@@ -1,6 +1,8 @@
-import { createHmac, scryptSync, timingSafeEqual } from "node:crypto"
+import { createHmac, timingSafeEqual } from "node:crypto"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
+
+import { getCasdoorConfig } from "@/lib/casdoor-config"
 
 const COOKIE_NAME = "ruawd_admin_session"
 const SESSION_DURATION_SECONDS = 60 * 60 * 24 * 7
@@ -20,7 +22,7 @@ function safeEqual(left: string, right: string): boolean {
   return timingSafeEqual(leftDigest, rightDigest)
 }
 
-function sessionSecret(): string | null {
+export function adminSessionSecret(): string | null {
   const value = process.env.SESSION_SECRET?.trim()
   return value && value.length >= 32 ? value : null
 }
@@ -49,54 +51,30 @@ function decodeSession(token: string, secret: string): SessionPayload | null {
   }
 }
 
-function verifyScryptPassword(password: string, encodedHash: string): boolean {
-  const [algorithm, saltValue, hashValue, extra] = encodedHash.split("$")
-  if (algorithm !== "scrypt" || !saltValue || !hashValue || extra) return false
-
-  try {
-    const expected = Buffer.from(hashValue, "base64url")
-    const actual = scryptSync(password, Buffer.from(saltValue, "base64url"), expected.length)
-    return expected.length > 0 && timingSafeEqual(actual, expected)
-  } catch {
-    return false
-  }
-}
-
 export function isAdminConfigured(): boolean {
-  return Boolean(
-    sessionSecret() &&
-    (process.env.ADMIN_PASSWORD_HASH?.trim() || process.env.ADMIN_PASSWORD?.trim()),
-  )
+  return Boolean(adminSessionSecret() && getCasdoorConfig())
 }
 
-export function verifyAdminCredentials(username: string, password: string): boolean {
-  const expectedUsername = process.env.ADMIN_USERNAME?.trim() || "Ruawd"
-  if (!safeEqual(username.trim(), expectedUsername)) return false
-
-  const passwordHash = process.env.ADMIN_PASSWORD_HASH?.trim()
-  if (passwordHash) return verifyScryptPassword(password, passwordHash)
-
-  const plainPassword = process.env.ADMIN_PASSWORD?.trim()
-  return Boolean(plainPassword && safeEqual(password, plainPassword))
-}
-
-export async function createAdminSession(username: string): Promise<void> {
-  const secret = sessionSecret()
+export function createAdminSessionCookie(username: string) {
+  const secret = adminSessionSecret()
   if (!secret) throw new Error("管理员会话尚未配置")
-  const cookieStore = await cookies()
-  cookieStore.set(
-    COOKIE_NAME,
-    encodeSession({ username, exp: Date.now() + SESSION_DURATION_SECONDS * 1000 }, secret),
-    {
+
+  const config = getCasdoorConfig()
+  if (!config || username !== config.allowedUsername) throw new Error("该 Casdoor 用户无权访问后台")
+
+  return {
+    name: COOKIE_NAME,
+    value: encodeSession({ username, exp: Date.now() + SESSION_DURATION_SECONDS * 1000 }, secret),
+    options: {
       httpOnly: true,
-      sameSite: "lax",
+      sameSite: "lax" as const,
       secure: process.env.COOKIE_SECURE
         ? process.env.COOKIE_SECURE !== "false"
         : process.env.NODE_ENV === "production",
       path: "/",
       maxAge: SESSION_DURATION_SECONDS,
     },
-  )
+  }
 }
 
 export async function clearAdminSession(): Promise<void> {
@@ -113,7 +91,7 @@ export async function clearAdminSession(): Promise<void> {
 }
 
 export async function getAdminSession(): Promise<AdminUser | null> {
-  const secret = sessionSecret()
+  const secret = adminSessionSecret()
   if (!secret) return null
   const token = (await cookies()).get(COOKIE_NAME)?.value
   if (!token) return null

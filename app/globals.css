@@ -5545,6 +5545,18 @@ a {
   position: relative;
 }
 
+.admin-login-provider {
+  margin: 22px 0 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.admin-login-provider strong {
+  color: var(--foreground);
+  font-weight: 650;
+}
+
 .admin-login-icon {
   position: absolute;
   top: -77px;

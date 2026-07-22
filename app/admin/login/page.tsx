@@ -21,9 +21,10 @@ function safeReturnTo(value: string | undefined): string {
 export default async function AdminLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ return_to?: string }>
+  searchParams: Promise<{ return_to?: string; error?: string }>
 }) {
-  const returnTo = safeReturnTo((await searchParams).return_to)
+  const params = await searchParams
+  const returnTo = safeReturnTo(params.return_to)
   if (await getAdminSession()) redirect(returnTo)
 
   return (
@@ -36,12 +37,12 @@ export default async function AdminLoginPage({
         <header>
           <p className="section-kicker">ADMIN / SIGN IN</p>
           <h1 id="admin-login-title">登录后台</h1>
-          <p>文章的新建、编辑、预览与发布只对管理员开放。</p>
+          <p>文章的新建、编辑、预览与发布通过 Casdoor 统一认证。</p>
         </header>
         <AdminLoginForm
           configured={isAdminConfigured()}
           returnTo={returnTo}
-          username={process.env.ADMIN_USERNAME?.trim() || "Ruawd"}
+          error={params.error}
         />
       </section>
     </main>

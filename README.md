@@ -7,7 +7,7 @@
 - `/blog`：公开文章列表与文章详情
 - `/message`：公开留言簿
 - `/mine/bangumi`：从 Bangumi API 同步动画、书籍、音乐和游戏收藏
-- `/admin/login`：管理员登录
+- `/admin/login`：通过 Casdoor 登录管理后台
 - `/admin`：文章编辑、各页面内容编辑、Bangumi API 配置，以及留言/评论审核
 - 每篇文章拥有独立评论区，昵称、网站和正文公开，邮箱仅后台可见
 - 页面与文章编辑器均支持 Markdown 实时预览
@@ -35,22 +35,17 @@ npm run dev
 
 本地环境建议将 `DATABASE_PATH` 改为 `./data/blog.sqlite`，并设置：
 
-- `ADMIN_USERNAME`
-- `ADMIN_PASSWORD_HASH`（推荐）或 `ADMIN_PASSWORD`
+- `CASDOOR_ISSUER`、`CASDOOR_CLIENT_ID`、`CASDOOR_CLIENT_SECRET`
+- `CASDOOR_REDIRECT_URI`（固定为站点的 `/api/auth/casdoor/callback`）
+- `CASDOOR_ALLOWED_USER`（仅该 Casdoor `preferred_username` 可进入后台）
 - 至少 32 个字符的 `SESSION_SECRET`
 - 本地 HTTP 调试时设置 `COOKIE_SECURE=false`
-
-生成密码哈希：
-
-```bash
-npm run admin:hash -- "你的强密码"
-```
 
 ## Docker 部署
 
 ```bash
 cp .env.example .env
-# 编辑 .env，填入管理员密码哈希和 SESSION_SECRET
+# 编辑 .env，填入 Casdoor OIDC 信息和 SESSION_SECRET
 docker compose up -d --build
 ```
 

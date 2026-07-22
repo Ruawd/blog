@@ -1,5 +1,6 @@
 import assert from "node:assert/strict"
 import { spawn } from "node:child_process"
+import { createHmac } from "node:crypto"
 import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { createServer } from "node:net"
 import { tmpdir } from "node:os"
@@ -7,8 +8,8 @@ import { join, resolve } from "node:path"
 import { after, before, test } from "node:test"
 
 const projectRoot = resolve(import.meta.dirname, "..")
-const adminPassword = "test-admin-password"
 const adminUsername = "Ruawd"
+const sessionSecret = "test-session-secret-that-is-longer-than-thirty-two-characters"
 
 let server
 let temporaryDirectory
@@ -50,9 +51,12 @@ before(async () => {
       HOSTNAME: "127.0.0.1",
       PORT: String(port),
       DATABASE_PATH: join(temporaryDirectory, "blog.sqlite"),
-      ADMIN_USERNAME: adminUsername,
-      ADMIN_PASSWORD: adminPassword,
-      SESSION_SECRET: "test-session-secret-that-is-longer-than-thirty-two-characters",
+      SESSION_SECRET: sessionSecret,
+      CASDOOR_ISSUER: "https://casdoor.example.com",
+      CASDOOR_CLIENT_ID: "test-casdoor-client",
+      CASDOOR_CLIENT_SECRET: "test-casdoor-secret",
+      CASDOOR_REDIRECT_URI: `${baseUrl}/api/auth/casdoor/callback`,
+      CASDOOR_ALLOWED_USER: adminUsername,
       COOKIE_SECURE: "false",
     },
     stdio: "ignore",
@@ -67,6 +71,15 @@ after(async () => {
 
 function request(pathname, options = {}) {
   return fetch(`${baseUrl}${pathname}`, { redirect: "manual", ...options })
+}
+
+function adminCookie() {
+  const payload = Buffer.from(JSON.stringify({
+    username: adminUsername,
+    exp: Date.now() + 60 * 60 * 1000,
+  })).toString("base64url")
+  const signature = createHmac("sha256", sessionSecret).update(payload).digest("base64url")
+  return `ruawd_admin_session=${payload}.${signature}`
 }
 
 test("renders the site identity and real blog index", async () => {
@@ -136,14 +149,22 @@ test("protects the management backend and supports draft-to-publish workflow", a
   assert.equal(apiResponse.status, 401)
   assert.equal(bangumiApiResponse.status, 401)
 
-  const loginResponse = await request("/api/admin/session", {
+  const loginResponse = await request("/api/auth/casdoor/login?return_to=/admin")
+  assert.equal(loginResponse.status, 307)
+  const authorizationUrl = new URL(loginResponse.headers.get("location"))
+  assert.equal(authorizationUrl.origin, "https://casdoor.example.com")
+  assert.equal(authorizationUrl.pathname, "/login/oauth/authorize")
+  assert.equal(authorizationUrl.searchParams.get("client_id"), "test-casdoor-client")
+  assert.equal(authorizationUrl.searchParams.get("code_challenge_method"), "S256")
+  assert.ok(loginResponse.headers.get("set-cookie")?.includes("ruawd_admin_casdoor_flow="))
+
+  const passwordLoginResponse = await request("/api/admin/session", {
     method: "POST",
     headers: { "content-type": "application/json", origin: baseUrl },
-    body: JSON.stringify({ username: adminUsername, password: adminPassword }),
+    body: JSON.stringify({ username: adminUsername, password: "disabled" }),
   })
-  assert.equal(loginResponse.status, 200)
-  const cookie = loginResponse.headers.get("set-cookie")?.split(";")[0]
-  assert.ok(cookie)
+  assert.equal(passwordLoginResponse.status, 405)
+  const cookie = adminCookie()
 
   const authenticatedAdmin = await request("/admin", { headers: { cookie } })
   assert.equal(authenticatedAdmin.status, 200)
@@ -304,13 +325,7 @@ test("supports guestbook messages and article-isolated comments", async () => {
   assert.equal(guestbook.comments[0].email, undefined)
   assert.match(article.comments[0].content, /文章独立评论/)
 
-  const loginResponse = await request("/api/admin/session", {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ username: adminUsername, password: adminPassword }),
-  })
-  const cookie = loginResponse.headers.get("set-cookie")?.split(";")[0]
-  assert.ok(cookie)
+  const cookie = adminCookie()
   const adminCommentsResponse = await request("/api/admin/comments", { headers: { cookie } })
   assert.equal(adminCommentsResponse.status, 200)
   const adminComments = (await adminCommentsResponse.json()).comments

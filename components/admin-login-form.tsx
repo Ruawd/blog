@@ -1,82 +1,41 @@
-"use client"
-
-import { useState } from "react"
-import { ArrowRight, LoaderCircle, LockKeyhole } from "lucide-react"
+import { ArrowRight, ShieldCheck } from "lucide-react"
 
 type AdminLoginFormProps = {
   configured: boolean
   returnTo: string
-  username: string
+  error?: string
 }
 
-export function AdminLoginForm({ configured, returnTo, username: initialUsername }: AdminLoginFormProps) {
-  const [username, setUsername] = useState(initialUsername)
-  const [password, setPassword] = useState("")
-  const [pending, setPending] = useState(false)
-  const [error, setError] = useState("")
+const errorMessages: Record<string, string> = {
+  configuration: "服务器尚未完成 Casdoor 配置。",
+  state: "登录状态已失效，请重新发起登录。",
+  forbidden: "当前 Casdoor 账号无权访问管理后台。",
+  casdoor: "Casdoor 登录失败，请重试。",
+}
 
-  async function submit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!configured || pending) return
-    setPending(true)
-    setError("")
-
-    try {
-      const response = await fetch("/api/admin/session", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ username, password }),
-      })
-      const body = await response.json() as { error?: string }
-      if (!response.ok) throw new Error(body.error || "登录失败，请稍后重试")
-      window.location.assign(returnTo)
-    } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "登录失败，请稍后重试")
-      setPending(false)
-    }
-  }
-
+export function AdminLoginForm({ configured, returnTo, error }: AdminLoginFormProps) {
   return (
-    <form className="admin-login-form" onSubmit={(event) => void submit(event)}>
-      <div className="admin-login-icon"><LockKeyhole aria-hidden="true" /></div>
-      <div className="admin-field">
-        <label htmlFor="admin-username">管理员账号</label>
-        <input
-          id="admin-username"
-          name="username"
-          value={username}
-          onChange={(event) => setUsername(event.target.value)}
-          autoComplete="username"
-          disabled={!configured || pending}
-          required
-        />
-      </div>
-      <div className="admin-field">
-        <label htmlFor="admin-password">密码</label>
-        <input
-          id="admin-password"
-          name="password"
-          type="password"
-          value={password}
-          onChange={(event) => setPassword(event.target.value)}
-          autoComplete="current-password"
-          disabled={!configured || pending}
-          required
-          autoFocus
-        />
-      </div>
+    <form className="admin-login-form" action="/api/auth/casdoor/login" method="get">
+      <input type="hidden" name="return_to" value={returnTo} />
+      <div className="admin-login-icon"><ShieldCheck aria-hidden="true" /></div>
+      <p className="admin-login-provider">
+        通过统一身份认证进入后台，仅授权 Casdoor 用户 <strong>Ruawd</strong>。
+      </p>
 
       {!configured ? (
         <p className="admin-login-error" role="alert">
-          服务器尚未配置管理员密码，请先完成环境变量配置。
+          服务器尚未完成 Casdoor 配置。
         </p>
       ) : null}
-      {error ? <p className="admin-login-error" role="alert">{error}</p> : null}
+      {error ? (
+        <p className="admin-login-error" role="alert">
+          {errorMessages[error] || errorMessages.casdoor}
+        </p>
+      ) : null}
 
-      <button type="submit" disabled={!configured || pending}>
-        {pending ? <LoaderCircle aria-hidden="true" /> : null}
-        <span>{pending ? "正在登录" : "进入管理后台"}</span>
-        {!pending ? <ArrowRight aria-hidden="true" /> : null}
+      <button type="submit" disabled={!configured}>
+        <span>使用 Casdoor 登录</span>
+        <ArrowRight aria-hidden="true" />
       </button>
     </form>
   )
