@@ -140,19 +140,19 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
         <BorderBeam size={110} duration={10} colorFrom="#111111" colorTo="#b7b7b7" borderWidth={1} />
         <div className="comment-form-grid">
           <label><span>昵称 *</span><input value={form.nickname} onChange={(event) => update("nickname", event.target.value)} maxLength={40} autoComplete="nickname" required /></label>
-          <label><span>邮箱（不公开，可匹配 Gravatar）</span><input type="email" value={form.email} onChange={(event) => update("email", event.target.value)} maxLength={120} autoComplete="email" /></label>
+          <label><span>邮箱（不公开，可匹配头像）</span><input type="email" value={form.email} onChange={(event) => update("email", event.target.value)} maxLength={120} autoComplete="email" /></label>
           <label><span>个人网站</span><input type="url" value={form.website} onChange={(event) => update("website", event.target.value)} placeholder="https://" autoComplete="url" /></label>
           <label>
             <span>头像链接</span>
             <input type="url" value={form.avatarUrl} onChange={(event) => update("avatarUrl", event.target.value)} placeholder="https://example.com/avatar.jpg" maxLength={1000} inputMode="url" />
-            <small>仅支持 HTTPS；留空时会尝试使用邮箱对应的 Gravatar。</small>
+            <small>仅支持 HTTPS；留空时会尝试使用 QQ 头像或 Gravatar。</small>
           </label>
         </div>
         <label className="comment-form-content"><span>内容 *</span><textarea value={form.content} onChange={(event) => update("content", event.target.value)} minLength={2} maxLength={2000} rows={6} required /></label>
         <label className="comment-honeypot" aria-hidden="true">公司<input value={form.company} onChange={(event) => update("company", event.target.value)} tabIndex={-1} autoComplete="off" /></label>
         <footer>
           <p className={error ? "is-error" : success ? "is-success" : ""} role="status">
-            {error || success || "头像链接优先；邮箱仅用于 Gravatar 匹配与辨识，不会公开。"}
+            {error || success || "头像链接优先；邮箱仅用于 QQ 头像或 Gravatar 匹配，不会公开。"}
           </p>
           <ShimmerButton type="submit" disabled={submitting}>
             {submitting ? <LoaderCircle className="spin" aria-hidden="true" /> : success ? <Check aria-hidden="true" /> : <Send aria-hidden="true" />}

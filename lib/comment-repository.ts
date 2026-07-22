@@ -108,7 +108,7 @@ function optionalAvatarUrl(value: unknown): string {
 
 function publicAvatarUrl(row: CommentRow): string {
   if (row.avatarUrl) return row.avatarUrl
-  return row.email ? `/api/avatars/comments/${row.id}` : ""
+  return row.email ? `/api/avatars/comments/${row.id}?v=2` : ""
 }
 
 function toPublicComment(row: CommentRow): PublicComment {

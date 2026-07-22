@@ -501,7 +501,7 @@ test("supports guestbook messages and article-isolated comments", async () => {
   assert.equal(article.comments.length, 1)
   assert.equal(anotherArticle.comments.length, 0)
   assert.equal(guestbook.comments[0].email, undefined)
-  assert.match(guestbook.comments[0].avatarUrl, /^\/api\/avatars\/comments\/\d+$/)
+  assert.match(guestbook.comments[0].avatarUrl, /^\/api\/avatars\/comments\/\d+\?v=2$/)
   assert.equal(article.comments[0].avatarUrl, "https://example.com/avatar.png")
   assert.match(article.comments[0].content, /文章独立评论/)
 
@@ -524,7 +524,7 @@ test("supports guestbook messages and article-isolated comments", async () => {
   assert.match(articleHtml, /文章评论/)
   assert.match(articleHtml, /邮箱（不公开/)
   assert.match(articleHtml, /头像链接/)
-  assert.match(articleHtml, /Gravatar/)
+  assert.match(articleHtml, /QQ 头像或 Gravatar/)
 })
 
 test("keeps the editor responsive, stable, and free of emoji controls", async () => {
