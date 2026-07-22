@@ -7,8 +7,10 @@ import { BlurFade } from "@/components/ui/blur-fade"
 import { Lens } from "@/components/ui/lens"
 
 interface AlbumPhoto {
+  readonly id: number
   readonly src: string
   readonly alt: string
+  readonly caption: string
   readonly width: number
   readonly height: number
 }
@@ -38,7 +40,7 @@ export function AlbumGallery({ photos }: AlbumGalleryProps) {
           )
 
           return (
-            <div className="album-item" key={photo.src}>
+            <div className="album-item" key={photo.id}>
               <figure className="album-card">
                 <Lens
                   zoomFactor={1.55}
@@ -49,7 +51,7 @@ export function AlbumGallery({ photos }: AlbumGalleryProps) {
                   {image}
                 </Lens>
                 <figcaption>
-                  <span>可爱流萤</span>
+                  <span>{photo.caption || photo.alt}</span>
                   <span className="album-meta">{number}</span>
                 </figcaption>
               </figure>

@@ -141,15 +141,17 @@ test("renders an article detail route with reading tools", async () => {
 })
 
 test("protects the management backend and supports draft-to-publish workflow", async () => {
-  const [adminResponse, apiResponse, bangumiApiResponse] = await Promise.all([
+  const [adminResponse, apiResponse, bangumiApiResponse, albumApiResponse] = await Promise.all([
     request("/admin"),
     request("/api/admin/posts"),
     request("/api/admin/bangumi"),
+    request("/api/admin/album"),
   ])
   assert.equal(adminResponse.status, 307)
   assert.match(adminResponse.headers.get("location") ?? "", /\/admin\/login/)
   assert.equal(apiResponse.status, 401)
   assert.equal(bangumiApiResponse.status, 401)
+  assert.equal(albumApiResponse.status, 401)
 
   const loginResponse = await request("/api/auth/casdoor/login?return_to=/admin")
   assert.equal(loginResponse.status, 307)
@@ -173,6 +175,7 @@ test("protects the management backend and supports draft-to-publish workflow", a
   const adminHtml = await authenticatedAdmin.text()
   assert.match(adminHtml, /内容管理/)
   assert.match(adminHtml, /页面内容/)
+  assert.match(adminHtml, /相册/)
   assert.match(adminHtml, /番组 API/)
   assert.match(adminHtml, /留言与评论/)
 
@@ -300,6 +303,54 @@ test("protects the management backend and supports draft-to-publish workflow", a
   const editedMessagePage = await (await request("/message")).text()
   assert.match(editedMessagePage, /这段留言页说明来自后台页面编辑器。/)
   assert.match(editedMessagePage, /留言规则/)
+
+  const albumResponse = await request("/api/admin/album", { headers: { cookie } })
+  assert.equal(albumResponse.status, 200)
+  const originalPhotos = (await albumResponse.json()).photos
+  assert.equal(originalPhotos.length, 9)
+
+  const invalidAlbumResponse = await request("/api/admin/album", {
+    method: "PUT",
+    headers: authHeaders,
+    body: JSON.stringify({
+      photos: [{ src: "http://example.com/image.jpg", alt: "不安全图片", caption: "", width: 100, height: 100 }],
+    }),
+  })
+  assert.equal(invalidAlbumResponse.status, 400)
+
+  const albumSaveResponse = await request("/api/admin/album", {
+    method: "PUT",
+    headers: authHeaders,
+    body: JSON.stringify({
+      photos: [
+        {
+          src: originalPhotos[1].src,
+          alt: originalPhotos[1].alt,
+          caption: "后台前移图片",
+          width: originalPhotos[1].width,
+          height: originalPhotos[1].height,
+        },
+        {
+          src: "/blog-media/profile/avatar.webp",
+          alt: "后台新增相册图片",
+          caption: "后台新增图片",
+          width: 640,
+          height: 640,
+        },
+      ],
+    }),
+  })
+  assert.equal(albumSaveResponse.status, 200)
+  const savedPhotos = (await albumSaveResponse.json()).photos
+  assert.equal(savedPhotos.length, 2)
+  assert.equal(savedPhotos[0].caption, "后台前移图片")
+  assert.equal(savedPhotos[0].sortOrder, 0)
+  assert.equal(savedPhotos[1].alt, "后台新增相册图片")
+
+  const editedAlbum = await (await request("/mine/album")).text()
+  assert.match(editedAlbum, /共 [\s\S]{0,40}2[\s\S]{0,40} 张/)
+  assert.match(editedAlbum, /后台前移图片/)
+  assert.match(editedAlbum, /后台新增相册图片/)
 })
 
 test("supports guestbook messages and article-isolated comments", async () => {
@@ -373,6 +424,7 @@ test("keeps the editor responsive, stable, and free of emoji controls", async ()
   assert.match(editor, /解锁并编辑/)
   assert.match(editor, /encryptArticleContent/)
   assert.match(consoleUi, /页面内容/)
+  assert.match(consoleUi, /相册/)
   assert.match(consoleUi, /番组 API/)
   assert.match(consoleUi, /留言与评论/)
   assert.match(session, /httpOnly: true/)

@@ -3,7 +3,7 @@ import type { Metadata } from "next"
 import { AlbumGallery } from "@/components/album-gallery"
 import { SiteFrame } from "@/components/site-frame"
 import { ManagedPageBody } from "@/components/managed-page-body"
-import { albumPhotos } from "@/lib/migrated-content"
+import { listAlbumPhotos } from "@/lib/album-repository"
 import { getPageContent } from "@/lib/page-content"
 
 export const metadata: Metadata = {
@@ -15,6 +15,7 @@ export const dynamic = "force-dynamic"
 
 export default async function AlbumPage() {
   const page = await getPageContent("album")
+  const photos = listAlbumPhotos()
   return (
     <SiteFrame
       eyebrow={page.eyebrow}
@@ -28,10 +29,14 @@ export default async function AlbumPage() {
             <p className="section-kicker">FIREFLY · 2026</p>
             <h2 id="album-title">可爱流萤</h2>
           </div>
-          <p>崩坏：星穹铁道 · 2026.01.01 · 共 {albumPhotos.length} 张</p>
+          <p>崩坏：星穹铁道 · 2026.01.01 · 共 {photos.length} 张</p>
         </header>
 
-        <AlbumGallery photos={albumPhotos} />
+        {photos.length ? (
+          <AlbumGallery photos={photos} />
+        ) : (
+          <div className="album-empty">相册暂时还没有图片。</div>
+        )}
       </section>
     </SiteFrame>
   )

@@ -51,6 +51,23 @@ export const bangumiSettings = sqliteTable("bangumi_settings", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 })
 
+export const albumPhotos = sqliteTable(
+  "album_photos",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    src: text("src").notNull(),
+    alt: text("alt").notNull(),
+    caption: text("caption").notNull().default(""),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    sortOrder: integer("sort_order").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [uniqueIndex("album_photos_sort_order_unique").on(table.sortOrder)],
+)
+
 export const comments = sqliteTable(
   "comments",
   {

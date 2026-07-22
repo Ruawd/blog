@@ -42,7 +42,7 @@ export default async function AdminPage() {
             <h1>内容管理</h1>
           </div>
           <p>
-            在这里编辑文章与各个页面，配置番组 API，并管理留言和每篇文章的独立评论。
+            在这里编辑文章、页面与相册，配置番组 API，并管理留言和每篇文章的独立评论。
           </p>
         </header>
         <AdminConsole displayName={user.username} />
