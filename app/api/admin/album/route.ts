@@ -1,5 +1,5 @@
 import { isSameOrigin, requireAdminApi } from "@/lib/admin-session"
-import { listAlbumPhotos, saveAlbumPhotos } from "@/lib/album-repository"
+import { listAlbumCollections, saveAlbumCollections } from "@/lib/album-repository"
 import { expirePublicCache, publicCacheTags } from "@/lib/public-cache"
 
 export const dynamic = "force-dynamic"
@@ -9,9 +9,9 @@ export async function GET() {
   if (!auth.ok) return auth.response
 
   try {
-    return Response.json({ photos: listAlbumPhotos() })
+    return Response.json({ albums: listAlbumCollections() })
   } catch {
-    return Response.json({ error: "相册图片暂时无法读取" }, { status: 500 })
+    return Response.json({ error: "子相册暂时无法读取" }, { status: 500 })
   }
 }
 
@@ -27,9 +27,9 @@ export async function PUT(request: Request) {
 
   try {
     const body = await request.json() as Record<string, unknown>
-    const photos = saveAlbumPhotos(body.photos, auth.user.username)
+    const albums = saveAlbumCollections(body.albums, auth.user.username)
     expirePublicCache([publicCacheTags.album], ["/mine/album"])
-    return Response.json({ photos })
+    return Response.json({ albums })
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "相册保存失败" },

@@ -43,7 +43,7 @@ async function postTelegram(comment: CommentNotificationContext): Promise<void> 
   const token = process.env.TELEGRAM_BOT_TOKEN?.trim()
   const chatId = process.env.TELEGRAM_CHAT_ID?.trim()
   if (!token || !chatId) return
-  const title = comment.parentId ? "博客收到新回复" : "博客收到新评论"
+  const title = comment.parentId ? "个人主页收到新回复" : "个人主页收到新评论"
   const text = [
     `<b>${escapeHtml(title)}</b>`,
     `<b>${escapeHtml(comment.nickname)}</b>：${escapeHtml(comment.content.slice(0, 800))}`,
@@ -74,7 +74,7 @@ async function sendReplyEmail(comment: CommentNotificationContext): Promise<void
     body: JSON.stringify({
       from,
       to: [recipient],
-      subject: `${comment.nickname} 回复了你在 Ruawd Blog 的评论`,
+      subject: `${comment.nickname} 回复了你在 Ruawd 个人主页的评论`,
       text: `${comment.nickname} 回复了你：\n\n${comment.content}\n\n查看回复：${url}\n\n这是一封由你在评论中填写的邮箱触发的回复提醒。`,
     }),
     signal: AbortSignal.timeout(7_000),

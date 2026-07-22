@@ -1,21 +1,22 @@
 import type { Metadata } from "next"
 
-import { AlbumGallery } from "@/components/album-gallery"
+import { AlbumCollectionGrid } from "@/components/album-collection-grid"
 import { SiteFrame } from "@/components/site-frame"
 import { ManagedPageBody } from "@/components/managed-page-body"
-import { listCachedAlbumPhotos } from "@/lib/album-repository"
+import { listCachedAlbumCollections } from "@/lib/album-repository"
 import { getPageContent } from "@/lib/page-content"
 
 export const metadata: Metadata = {
   title: "相册",
-  description: "可爱流萤与 Ruawd 的相册收藏。",
+  description: "Ruawd 的子相册与影像收藏。",
+  alternates: { canonical: "/mine/album" },
 }
 
 export const dynamic = "force-dynamic"
 
 export default async function AlbumPage() {
   const page = await getPageContent("album")
-  const photos = await listCachedAlbumPhotos()
+  const albums = await listCachedAlbumCollections()
   return (
     <SiteFrame
       eyebrow={page.eyebrow}
@@ -23,19 +24,19 @@ export default async function AlbumPage() {
       description={page.description}
     >
       <ManagedPageBody content={page.body} />
-      <section className="page-section" aria-labelledby="album-title">
+      <section className="page-section" aria-labelledby="album-collections-title">
         <header className="page-section-heading">
           <div>
-            <p className="section-kicker">FIREFLY · 2026</p>
-            <h2 id="album-title">可爱流萤</h2>
+            <p className="section-kicker">COLLECTIONS / ALBUMS</p>
+            <h2 id="album-collections-title">子相册</h2>
           </div>
-          <p>崩坏：星穹铁道 · 2026.01.01 · 共 {photos.length} 张</p>
+          <p>{albums.length} 个相册 · 共 {albums.reduce((total, album) => total + album.photoCount, 0)} 张图片</p>
         </header>
 
-        {photos.length ? (
-          <AlbumGallery photos={photos} />
+        {albums.length ? (
+          <AlbumCollectionGrid albums={albums} />
         ) : (
-          <div className="album-empty">相册暂时还没有图片。</div>
+          <div className="album-empty">暂时还没有子相册。</div>
         )}
       </section>
     </SiteFrame>

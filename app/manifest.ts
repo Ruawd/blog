@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Ruawd Blog",
+    name: "Ruawd 个人主页",
     short_name: "Ruawd",
-    description: "记录技术实践、VPS 测评与数字生活。",
+    description: "文章、相册、番组、友链与数字生活。",
     start_url: "/",
     display: "standalone",
     background_color: "#f7f7f7",

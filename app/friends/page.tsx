@@ -11,7 +11,8 @@ import { siteConfig } from "@/lib/site"
 
 export const metadata: Metadata = {
   title: "友链",
-  description: "Ruawd Blog 的友情链接与友链申请说明。",
+  description: "Ruawd 个人主页的友情链接与友链申请说明。",
+  alternates: { canonical: "/friends" },
 }
 
 export const dynamic = "force-dynamic"

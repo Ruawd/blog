@@ -5,15 +5,15 @@ import { getDatabase } from "@/db"
 import { publicCacheTags } from "@/lib/public-cache"
 
 export const pageContentDefaults = {
-  home: { path: "/", label: "主页", eyebrow: "HOME", title: "Ruawd", description: "在技术与生活之间，慢慢记录。", body: "" },
+  home: { path: "/", label: "主页", eyebrow: "PERSONAL / HOME", title: "Ruawd", description: "文章、相册、番组与数字生活，慢慢整理成自己的页面。", body: "" },
   blog: { path: "/blog", label: "博客", eyebrow: "JOURNAL / BLOG", title: "博客", description: "技术实践、VPS 测评与数字生活记录。", body: "" },
   message: { path: "/message", label: "留言", eyebrow: "GUESTBOOK / MESSAGE", title: "留言", description: "在这里留下你的足迹，也欢迎分享想法和建议。", body: "" },
   friends: { path: "/friends", label: "友链", eyebrow: "NEIGHBORS / FRIENDS", title: "友链", description: "在互联网上遇见的朋友与值得常去的网站。", body: "" },
   links: { path: "/links", label: "链接", eyebrow: "LINKS / 个人链接", title: "在别处找到我", description: "我的个人主页、联系方式与常用站外入口。", body: "" },
-  album: { path: "/mine/album", label: "相册", eyebrow: "MY / ALBUM", title: "相册", description: "飞萤之火自无梦的长夜亮起，绽放在终竟的明天。", body: "" },
+  album: { path: "/mine/album", label: "相册", eyebrow: "MY / ALBUMS", title: "相册", description: "按主题整理影像、插画与值得留下的视觉片段。", body: "" },
   bangumi: { path: "/mine/bangumi", label: "番组计划", eyebrow: "MY / BANGUMI", title: "番组计划", description: "想看、在看与看过的动画、书籍、音乐和游戏记录。", body: "" },
-  support: { path: "/about/support", label: "打赏", eyebrow: "SUPPORT / 自愿支持", title: "支持 Ruawd Blog", description: "你的赞助将用于服务器维护、内容创作和功能开发。", body: "" },
-  about: { path: "/about/me", label: "关于我", eyebrow: "ABOUT / 关于我", title: "你好，我是 Ruawd", description: "Hello, I'm Ruawd. 欢迎来到我的个人博客。", body: "" },
+  support: { path: "/about/support", label: "打赏", eyebrow: "SUPPORT / 自愿支持", title: "支持这个小站", description: "你的赞助将用于服务器维护、内容创作和功能开发。", body: "" },
+  about: { path: "/about/me", label: "关于我", eyebrow: "ABOUT / 关于我", title: "你好，我是 Ruawd", description: "Hello, I'm Ruawd. 欢迎来到我的个人主页。", body: "" },
 } as const
 
 export type PageContentKey = keyof typeof pageContentDefaults
@@ -83,7 +83,7 @@ async function readPageContent(key: PageContentKey): Promise<PageContent> {
 
 const getCachedPageContent = unstable_cache(
   readPageContent,
-  ["managed-page-content-v1"],
+  ["managed-page-content-v2"],
   { revalidate: 300, tags: [publicCacheTags.pages] },
 )
 

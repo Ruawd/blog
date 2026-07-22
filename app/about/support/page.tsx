@@ -7,7 +7,8 @@ import { getPageContent } from "@/lib/page-content"
 
 export const metadata: Metadata = {
   title: "打赏",
-  description: "支持 Ruawd Blog 的服务器维护、内容创作和功能开发。",
+  description: "支持 Ruawd 个人主页的服务器维护、内容创作和功能开发。",
+  alternates: { canonical: "/about/support" },
 }
 
 export const dynamic = "force-dynamic"

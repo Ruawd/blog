@@ -251,6 +251,13 @@
 .dark .home-feature-card:not(.is-featured) { background: var(--surface); color: var(--foreground); }
 .dark .home-feature-card:not(.is-featured)::after { border-color: var(--border); }
 .dark .magic-card::before { background: radial-gradient(240px circle at var(--magic-x, 50%) var(--magic-y, 50%), rgba(255,255,255,.14), transparent 70%); }
+.dark .album-card:hover,
+.dark .album-card:focus-within,
+.dark .album-collection-magic:hover,
+.dark .album-collection-magic:focus-within { border-color: rgba(242,242,239,.44); }
+.dark .admin-album-heading button,
+.dark .admin-album-collections > div > button.is-active,
+.dark .admin-album-list > button.is-active { border-color: var(--foreground); background: var(--foreground); color: var(--background); }
 .dark .article-prose a,
 .dark .article-details,
 .dark .article-code-content { color: var(--foreground); }

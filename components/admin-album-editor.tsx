@@ -6,10 +6,12 @@ import {
   ArrowUp,
   Check,
   ExternalLink,
+  FolderOpen,
+  FolderPlus,
+  GripVertical,
   ImageOff,
   ImagePlus,
   Images,
-  GripVertical,
   LoaderCircle,
   RefreshCw,
   Ruler,
@@ -21,10 +23,17 @@ import {
 import { ResilientImage } from "@/components/resilient-image"
 import { BorderBeam } from "@/components/ui/border-beam"
 import { ShimmerButton } from "@/components/ui/shimmer-button"
-import type { AlbumPhoto, AlbumPhotoInput } from "@/lib/album-repository"
+import type {
+  AlbumCollection,
+  AlbumCollectionInput,
+  AlbumPhoto,
+  AlbumPhotoInput,
+} from "@/lib/album-repository"
 
-type PhotoDraft = AlbumPhotoInput & {
+type PhotoDraft = AlbumPhotoInput & { clientId: string }
+type AlbumDraft = Omit<AlbumCollectionInput, "photos"> & {
   clientId: string
+  photos: PhotoDraft[]
 }
 
 async function readJson<T>(response: Response): Promise<T> {
@@ -33,14 +42,14 @@ async function readJson<T>(response: Response): Promise<T> {
   return body
 }
 
-async function fetchAlbumPhotos(): Promise<AlbumPhoto[]> {
-  const data = await readJson<{ photos: AlbumPhoto[] }>(
+async function fetchAlbums(): Promise<AlbumCollection[]> {
+  const data = await readJson<{ albums: AlbumCollection[] }>(
     await fetch("/api/admin/album", { cache: "no-store" }),
   )
-  return data.photos
+  return data.albums
 }
 
-function toDraft(photo: AlbumPhoto): PhotoDraft {
+function toPhotoDraft(photo: AlbumPhoto): PhotoDraft {
   return {
     clientId: `photo-${photo.id}`,
     src: photo.src,
@@ -50,6 +59,18 @@ function toDraft(photo: AlbumPhoto): PhotoDraft {
     height: photo.height,
     takenAt: photo.takenAt || "",
     originalName: photo.originalName || "",
+  }
+}
+
+function toAlbumDraft(album: AlbumCollection): AlbumDraft {
+  return {
+    clientId: `album-${album.id}`,
+    slug: album.slug,
+    title: album.title,
+    description: album.description,
+    period: album.period,
+    coverSrc: album.coverSrc,
+    photos: album.photos.map(toPhotoDraft),
   }
 }
 
@@ -115,10 +136,17 @@ async function readExifTakenAt(file: File): Promise<string> {
   return ""
 }
 
+function nextAlbumSlug(albums: AlbumDraft[]): string {
+  let index = albums.length + 1
+  while (albums.some((album) => album.slug === `album-${index}`)) index += 1
+  return `album-${index}`
+}
+
 export function AdminAlbumEditor() {
   const uploadRef = useRef<HTMLInputElement>(null)
-  const [photos, setPhotos] = useState<PhotoDraft[]>([])
-  const [activeId, setActiveId] = useState("")
+  const [albums, setAlbums] = useState<AlbumDraft[]>([])
+  const [activeAlbumId, setActiveAlbumId] = useState("")
+  const [activePhotoId, setActivePhotoId] = useState("")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [detecting, setDetecting] = useState(false)
@@ -128,29 +156,44 @@ export function AdminAlbumEditor() {
   const [error, setError] = useState("")
   const [message, setMessage] = useState("")
 
-  const activeIndex = photos.findIndex((photo) => photo.clientId === activeId)
-  const active = activeIndex >= 0 ? photos[activeIndex] : null
+  const activeAlbumIndex = albums.findIndex((album) => album.clientId === activeAlbumId)
+  const activeAlbum = activeAlbumIndex >= 0 ? albums[activeAlbumIndex] : null
+  const photos = activeAlbum?.photos || []
+  const activePhotoIndex = photos.findIndex((photo) => photo.clientId === activePhotoId)
+  const activePhoto = activePhotoIndex >= 0 ? photos[activePhotoIndex] : null
 
   const orientation = useMemo(() => {
-    if (!active) return ""
-    if (active.width === active.height) return "方形"
-    return active.width > active.height ? "横图" : "竖图"
-  }, [active])
+    if (!activePhoto) return ""
+    if (activePhoto.width === activePhoto.height) return "方形"
+    return activePhoto.width > activePhoto.height ? "横图" : "竖图"
+  }, [activePhoto])
+
+  function selectAlbum(clientId: string, nextAlbums = albums) {
+    const album = nextAlbums.find((item) => item.clientId === clientId)
+    setActiveAlbumId(clientId)
+    setActivePhotoId(album?.photos[0]?.clientId || "")
+    setError("")
+    setMessage("")
+  }
+
+  function applyLoadedAlbums(loaded: AlbumCollection[]) {
+    const next = loaded.map(toAlbumDraft)
+    setAlbums(next)
+    const selected = next.find((album) => album.clientId === activeAlbumId) || next[0]
+    setActiveAlbumId(selected?.clientId || "")
+    setActivePhotoId(selected?.photos[0]?.clientId || "")
+    setDirty(false)
+  }
 
   async function load(options?: { confirmDiscard?: boolean }) {
-    if (options?.confirmDiscard && dirty && !window.confirm("放弃尚未保存的相册修改吗？")) return
+    if (options?.confirmDiscard && dirty && !window.confirm("放弃尚未保存的子相册修改吗？")) return
     setLoading(true)
     setError("")
     setMessage("")
     try {
-      const next = (await fetchAlbumPhotos()).map(toDraft)
-      setPhotos(next)
-      setActiveId((current) => next.some((photo) => photo.clientId === current)
-        ? current
-        : next[0]?.clientId || "")
-      setDirty(false)
+      applyLoadedAlbums(await fetchAlbums())
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "相册读取失败")
+      setError(reason instanceof Error ? reason.message : "子相册读取失败")
     } finally {
       setLoading(false)
     }
@@ -158,19 +201,20 @@ export function AdminAlbumEditor() {
 
   useEffect(() => {
     let cancelled = false
-    async function loadInitialPhotos() {
+    async function loadInitialAlbums() {
       try {
-        const next = (await fetchAlbumPhotos()).map(toDraft)
+        const next = (await fetchAlbums()).map(toAlbumDraft)
         if (cancelled) return
-        setPhotos(next)
-        setActiveId(next[0]?.clientId || "")
+        setAlbums(next)
+        setActiveAlbumId(next[0]?.clientId || "")
+        setActivePhotoId(next[0]?.photos[0]?.clientId || "")
       } catch (reason) {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : "相册读取失败")
+        if (!cancelled) setError(reason instanceof Error ? reason.message : "子相册读取失败")
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
-    void loadInitialPhotos()
+    void loadInitialAlbums()
     return () => { cancelled = true }
   }, [])
 
@@ -187,80 +231,136 @@ export function AdminAlbumEditor() {
     setMessage("")
   }
 
-  function update<K extends keyof AlbumPhotoInput>(key: K, value: AlbumPhotoInput[K]) {
-    if (!active) return
-    setPhotos((current) => current.map((photo) => (
-      photo.clientId === active.clientId ? { ...photo, [key]: value } : photo
-    )))
+  function updateAlbum<K extends keyof Omit<AlbumCollectionInput, "photos">>(key: K, value: AlbumDraft[K]) {
+    if (!activeAlbum) return
+    setAlbums((current) => current.map((album) => album.clientId === activeAlbum.clientId ? { ...album, [key]: value } : album))
+    markChanged()
+  }
+
+  function updatePhoto<K extends keyof AlbumPhotoInput>(key: K, value: AlbumPhotoInput[K]) {
+    updatePhotoFields({ [key]: value } as Pick<AlbumPhotoInput, K>)
+  }
+
+  function updatePhotoFields(fields: Partial<AlbumPhotoInput>) {
+    if (!activeAlbum || !activePhoto) return
+    setAlbums((current) => current.map((album) => album.clientId === activeAlbum.clientId
+      ? { ...album, photos: album.photos.map((photo) => photo.clientId === activePhoto.clientId ? { ...photo, ...fields } : photo) }
+      : album))
+    markChanged()
+  }
+
+  function addAlbum() {
+    const album: AlbumDraft = {
+      clientId: `new-album-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      slug: nextAlbumSlug(albums),
+      title: "新相册",
+      description: "",
+      period: "",
+      coverSrc: "",
+      photos: [],
+    }
+    const next = [...albums, album]
+    setAlbums(next)
+    selectAlbum(album.clientId, next)
+    markChanged()
+  }
+
+  function removeAlbum() {
+    if (!activeAlbum || !window.confirm(`确定删除“${activeAlbum.title}”吗？其中 ${activeAlbum.photos.length} 张图片会在保存后从前台移除。`)) return
+    const next = albums.filter((album) => album.clientId !== activeAlbum.clientId)
+    setAlbums(next)
+    const selected = next[Math.min(activeAlbumIndex, next.length - 1)]
+    setActiveAlbumId(selected?.clientId || "")
+    setActivePhotoId(selected?.photos[0]?.clientId || "")
+    markChanged()
+  }
+
+  function moveAlbum(offset: -1 | 1) {
+    if (!activeAlbum) return
+    const target = activeAlbumIndex + offset
+    if (target < 0 || target >= albums.length) return
+    setAlbums((current) => {
+      const next = [...current]
+      ;[next[activeAlbumIndex], next[target]] = [next[target], next[activeAlbumIndex]]
+      return next
+    })
     markChanged()
   }
 
   function addPhoto() {
+    if (!activeAlbum) return
     const photo: PhotoDraft = {
-      clientId: `new-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      clientId: `new-photo-${Date.now()}-${Math.random().toString(36).slice(2)}`,
       src: "",
-      alt: "流萤插画",
-      caption: "可爱流萤",
+      alt: "相册图片",
+      caption: "",
       width: 1600,
       height: 1200,
       takenAt: "",
       originalName: "",
     }
-    setPhotos((current) => [...current, photo])
-    setActiveId(photo.clientId)
+    setAlbums((current) => current.map((album) => album.clientId === activeAlbum.clientId
+      ? { ...album, photos: [...album.photos, photo] }
+      : album))
+    setActivePhotoId(photo.clientId)
     markChanged()
   }
 
   function removePhoto() {
-    if (!active || !window.confirm(`确定删除第 ${activeIndex + 1} 张图片吗？保存后前台会立即移除。`)) return
-    const next = photos.filter((photo) => photo.clientId !== active.clientId)
-    setPhotos(next)
-    setActiveId(next[Math.min(activeIndex, next.length - 1)]?.clientId || "")
+    if (!activeAlbum || !activePhoto || !window.confirm(`确定删除第 ${activePhotoIndex + 1} 张图片吗？保存后前台会立即移除。`)) return
+    const nextPhotos = photos.filter((photo) => photo.clientId !== activePhoto.clientId)
+    setAlbums((current) => current.map((album) => album.clientId === activeAlbum.clientId ? { ...album, photos: nextPhotos } : album))
+    setActivePhotoId(nextPhotos[Math.min(activePhotoIndex, nextPhotos.length - 1)]?.clientId || "")
     markChanged()
   }
 
   function movePhoto(offset: -1 | 1) {
-    if (!active) return
-    const target = activeIndex + offset
+    if (!activeAlbum || !activePhoto) return
+    const target = activePhotoIndex + offset
     if (target < 0 || target >= photos.length) return
-    setPhotos((current) => {
-      const next = [...current]
-      ;[next[activeIndex], next[target]] = [next[target], next[activeIndex]]
-      return next
-    })
+    setAlbums((current) => current.map((album) => {
+      if (album.clientId !== activeAlbum.clientId) return album
+      const nextPhotos = [...album.photos]
+      ;[nextPhotos[activePhotoIndex], nextPhotos[target]] = [nextPhotos[target], nextPhotos[activePhotoIndex]]
+      return { ...album, photos: nextPhotos }
+    }))
     markChanged()
   }
 
   function movePhotoTo(sourceId: string, targetId: string) {
-    if (!sourceId || sourceId === targetId) return
-    setPhotos((current) => {
-      const sourceIndex = current.findIndex((photo) => photo.clientId === sourceId)
-      const targetIndex = current.findIndex((photo) => photo.clientId === targetId)
-      if (sourceIndex < 0 || targetIndex < 0) return current
-      const next = [...current]
-      const [moved] = next.splice(sourceIndex, 1)
-      next.splice(targetIndex, 0, moved)
-      return next
-    })
-    setActiveId(sourceId)
+    if (!activeAlbum || !sourceId || sourceId === targetId) return
+    setAlbums((current) => current.map((album) => {
+      if (album.clientId !== activeAlbum.clientId) return album
+      const sourceIndex = album.photos.findIndex((photo) => photo.clientId === sourceId)
+      const targetIndex = album.photos.findIndex((photo) => photo.clientId === targetId)
+      if (sourceIndex < 0 || targetIndex < 0) return album
+      const nextPhotos = [...album.photos]
+      const [moved] = nextPhotos.splice(sourceIndex, 1)
+      nextPhotos.splice(targetIndex, 0, moved)
+      return { ...album, photos: nextPhotos }
+    }))
+    setActivePhotoId(sourceId)
     markChanged()
   }
 
   async function uploadPhoto(file: File) {
-    if (uploading) return
+    if (!activeAlbum || uploading) return
     setUploading(true)
     setError("")
     setMessage("")
     const objectUrl = URL.createObjectURL(file)
     try {
-      const [dimensions, takenAt] = await Promise.all([new Promise<{ width: number; height: number }>((resolve, reject) => {
-        const image = new window.Image()
-        image.onload = () => image.naturalWidth && image.naturalHeight
-          ? resolve({ width: image.naturalWidth, height: image.naturalHeight })
-          : reject(new Error("无法读取图片尺寸"))
-        image.onerror = () => reject(new Error("无法读取这个图片文件"))
-        image.src = objectUrl
-      }), readExifTakenAt(file)])
+      const [dimensions, takenAt] = await Promise.all([
+        new Promise<{ width: number; height: number }>((resolve, reject) => {
+          const image = new window.Image()
+          image.onload = () => image.naturalWidth && image.naturalHeight
+            ? resolve({ width: image.naturalWidth, height: image.naturalHeight })
+            : reject(new Error("无法读取图片尺寸"))
+          image.onerror = () => reject(new Error("无法读取这个图片文件"))
+          image.src = objectUrl
+        }),
+        readExifTakenAt(file),
+      ])
       const form = new FormData()
       form.set("file", file)
       const data = await readJson<{ upload: { src: string } }>(await fetch("/api/admin/album/upload", {
@@ -277,10 +377,12 @@ export function AdminAlbumEditor() {
         takenAt,
         ...dimensions,
       }
-      setPhotos((current) => [...current, photo])
-      setActiveId(photo.clientId)
+      setAlbums((current) => current.map((album) => album.clientId === activeAlbum.clientId
+        ? { ...album, photos: [...album.photos, photo] }
+        : album))
+      setActivePhotoId(photo.clientId)
       markChanged()
-      setMessage(`图片已上传并读取尺寸：${dimensions.width} × ${dimensions.height}，请保存相册列表`)
+      setMessage(`图片已上传到“${activeAlbum.title}”，尺寸 ${dimensions.width} × ${dimensions.height}，请保存全部相册`)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "图片上传失败")
     } finally {
@@ -291,7 +393,7 @@ export function AdminAlbumEditor() {
   }
 
   async function detectDimensions() {
-    if (!active || !canPreview(active.src) || detecting) {
+    if (!activePhoto || !canPreview(activePhoto.src) || detecting) {
       setError("请先填写可访问的站内路径或 HTTPS 图片地址")
       return
     }
@@ -306,12 +408,9 @@ export function AdminAlbumEditor() {
           ? resolve({ width: image.naturalWidth, height: image.naturalHeight })
           : reject(new Error("无法读取图片尺寸"))
         image.onerror = () => reject(new Error("图片加载失败，请检查地址"))
-        image.src = active.src
+        image.src = activePhoto.src
       })
-      setPhotos((current) => current.map((photo) => photo.clientId === active.clientId
-        ? { ...photo, ...dimensions }
-        : photo))
-      markChanged()
+      updatePhotoFields(dimensions)
       setMessage(`已读取原图尺寸：${dimensions.width} × ${dimensions.height}`)
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "图片尺寸读取失败")
@@ -326,40 +425,39 @@ export function AdminAlbumEditor() {
     setError("")
     setMessage("")
     try {
-      const data = await readJson<{ photos: AlbumPhoto[] }>(await fetch("/api/admin/album", {
+      const data = await readJson<{ albums: AlbumCollection[] }>(await fetch("/api/admin/album", {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify({
-          photos: photos.map(({ src, alt, caption, width, height, takenAt, originalName }) => ({
-            src,
-            alt,
-            caption,
-            width,
-            height,
-            takenAt,
-            originalName,
+          albums: albums.map(({ slug, title, description, period, coverSrc, photos: albumPhotos }) => ({
+            slug,
+            title,
+            description,
+            period,
+            coverSrc,
+            photos: albumPhotos.map(({ src, alt, caption, width, height, takenAt, originalName }) => ({
+              src,
+              alt,
+              caption,
+              width,
+              height,
+              takenAt,
+              originalName,
+            })),
           })),
         }),
       }))
-      const next = data.photos.map(toDraft)
-      const selectedIndex = Math.max(0, activeIndex)
-      setPhotos(next)
-      setActiveId(next[Math.min(selectedIndex, next.length - 1)]?.clientId || "")
-      setDirty(false)
-      setMessage("相册已保存，前台图片和顺序立即生效")
+      applyLoadedAlbums(data.albums)
+      setMessage("全部子相册已保存，前台目录、图片和顺序立即生效")
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "相册保存失败")
+      setError(reason instanceof Error ? reason.message : "子相册保存失败")
     } finally {
       setSaving(false)
     }
   }
 
   if (loading) {
-    return (
-      <div className="admin-album-loading">
-        <LoaderCircle className="spin" aria-hidden="true" />正在读取相册图片
-      </div>
-    )
+    return <div className="admin-album-loading"><LoaderCircle className="spin" aria-hidden="true" />正在读取子相册</div>
   }
 
   return (
@@ -367,21 +465,18 @@ export function AdminAlbumEditor() {
       <BorderBeam size={150} duration={12} colorFrom="#111111" colorTo="#b7b7b7" borderWidth={1} />
       <header className="admin-album-heading">
         <div>
-          <p className="section-kicker">ALBUM / GALLERY</p>
-          <h2 id="admin-album-title">相册图片</h2>
-          <p>添加图片地址、修改图注与替代文字，并调整前台瀑布流顺序。</p>
+          <p className="section-kicker">ALBUMS / COLLECTIONS</p>
+          <h2 id="admin-album-title">子相册管理</h2>
+          <p>创建多个独立相册，分别设置封面、说明和图片瀑布流。现有图片已经归入“流萤相册”。</p>
         </div>
         <div>
-          <a href="/mine/album" target="_blank" rel="noreferrer">
-            查看相册<ExternalLink aria-hidden="true" />
-          </a>
-          <button type="button" onClick={addPhoto}>
-            <ImagePlus aria-hidden="true" />添加图片
-          </button>
-          <label className="admin-album-upload">
+          <a href="/mine/album" target="_blank" rel="noreferrer">查看相册<ExternalLink aria-hidden="true" /></a>
+          <button type="button" onClick={addAlbum}><FolderPlus aria-hidden="true" />新增相册</button>
+          <button type="button" onClick={addPhoto} disabled={!activeAlbum}><ImagePlus aria-hidden="true" />添加图片</button>
+          <label className="admin-album-upload" aria-disabled={!activeAlbum || uploading}>
             {uploading ? <LoaderCircle className="spin" aria-hidden="true" /> : <Upload aria-hidden="true" />}
-            {uploading ? "上传中" : "上传本地图片"}
-            <input ref={uploadRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" disabled={uploading} onChange={(event) => {
+            {uploading ? "上传中" : "上传图片"}
+            <input ref={uploadRef} type="file" accept="image/jpeg,image/png,image/webp,image/avif,image/gif" disabled={!activeAlbum || uploading} onChange={(event) => {
               const file = event.target.files?.[0]
               if (file) void uploadPhoto(file)
             }} />
@@ -389,203 +484,128 @@ export function AdminAlbumEditor() {
         </div>
       </header>
 
-      <div className="admin-album-workspace">
-        <aside className="admin-album-sidebar">
-          <header>
-            <div><span>图片列表</span><strong>{photos.length} 张</strong></div>
-            <button
-              type="button"
-              onClick={() => void load({ confirmDiscard: true })}
-              aria-label="重新读取相册"
-            >
-              <RefreshCw aria-hidden="true" />
-            </button>
-          </header>
-          {photos.length ? (
-            <div className="admin-album-list">
-              {photos.map((photo, index) => (
-                <button
-                  type="button"
-                  className={photo.clientId === activeId ? "is-active" : ""}
-                  draggable
-                  aria-grabbed={draggingId === photo.clientId}
-                  onDragStart={(event) => { setDraggingId(photo.clientId); event.dataTransfer.effectAllowed = "move" }}
-                  onDragEnd={() => setDraggingId("")}
-                  onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move" }}
-                  onDrop={(event) => { event.preventDefault(); movePhotoTo(draggingId, photo.clientId); setDraggingId("") }}
-                  onClick={() => { setActiveId(photo.clientId); setError(""); setMessage("") }}
-                  key={photo.clientId}
-                >
-                  <span className="admin-album-thumb">
-                    {canPreview(photo.src) ? (
-                      <ResilientImage src={photo.src} alt="" loading="lazy" decoding="async" />
-                    ) : (
-                      <ImageOff aria-hidden="true" />
-                    )}
-                  </span>
-                  <span className="admin-album-list-copy">
-                    <strong>{photo.caption || photo.alt || "未命名图片"}</strong>
-                    <small>{photo.width} × {photo.height} · {sourceLabel(photo.src)}</small>
-                  </span>
-                  <b><GripVertical aria-hidden="true" />{String(index + 1).padStart(2, "0")}</b>
-                </button>
-              ))}
+      {albums.length ? (
+        <>
+          <section className="admin-album-collections" aria-label="子相册列表">
+            <header>
+              <div><span>子相册</span><strong>{albums.length} 个</strong></div>
+              <button type="button" onClick={() => void load({ confirmDiscard: true })} aria-label="重新读取子相册"><RefreshCw aria-hidden="true" /></button>
+            </header>
+            <div>
+              {albums.map((album, index) => {
+                const cover = album.coverSrc || album.photos[0]?.src
+                return (
+                  <button type="button" className={album.clientId === activeAlbumId ? "is-active" : ""} onClick={() => selectAlbum(album.clientId)} key={album.clientId}>
+                    <span>{cover && canPreview(cover) ? <ResilientImage src={cover} alt="" loading="lazy" decoding="async" /> : <FolderOpen aria-hidden="true" />}</span>
+                    <span><strong>{album.title || "未命名相册"}</strong><small>/{album.slug || "未填写"} · {album.photos.length} 张</small></span>
+                    <b>{String(index + 1).padStart(2, "0")}</b>
+                  </button>
+                )
+              })}
             </div>
-          ) : (
-            <div className="admin-album-list-empty">
-              <Images aria-hidden="true" />
-              <span>相册还是空的</span>
-              <button type="button" onClick={addPhoto}>添加第一张图片</button>
-            </div>
-          )}
-        </aside>
+          </section>
 
-        {active ? (
-          <div className="admin-album-detail">
-            <div className="admin-album-detail-grid">
-              <section className="admin-album-preview-panel" aria-label="图片预览">
-                <div className="admin-album-preview-frame">
-                  {canPreview(active.src) ? (
-                    <ResilientImage
-                      key={`${active.clientId}-${active.src}`}
-                      src={active.src}
-                      alt={active.alt || "相册图片预览"}
-                      decoding="async"
-                    />
-                  ) : (
-                    <div className="admin-album-preview-empty">
-                      <ImageOff aria-hidden="true" />
-                      <span>填写图片地址后显示预览</span>
+          {activeAlbum ? (
+            <section className="admin-album-settings" aria-labelledby="admin-album-settings-title">
+              <header>
+                <div><p className="section-kicker">ALBUM SETTINGS</p><h3 id="admin-album-settings-title">{activeAlbum.title || "相册设置"}</h3></div>
+                <div>
+                  <button type="button" onClick={() => moveAlbum(-1)} disabled={activeAlbumIndex === 0}><ArrowUp aria-hidden="true" />前移</button>
+                  <button type="button" onClick={() => moveAlbum(1)} disabled={activeAlbumIndex === albums.length - 1}><ArrowDown aria-hidden="true" />后移</button>
+                  <button className="danger" type="button" onClick={removeAlbum}><Trash2 aria-hidden="true" />删除相册</button>
+                </div>
+              </header>
+              <div className="admin-album-settings-grid">
+                <div className="admin-field"><label htmlFor="album-title">相册标题 *</label><input id="album-title" value={activeAlbum.title} maxLength={80} onChange={(event) => updateAlbum("title", event.target.value)} /></div>
+                <div className="admin-field"><label htmlFor="album-slug">链接标识 *</label><input id="album-slug" value={activeAlbum.slug} maxLength={80} spellCheck={false} onChange={(event) => updateAlbum("slug", event.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ""))} /><small>小写字母、数字和连字符，例如 firefly。</small></div>
+                <div className="admin-field"><label htmlFor="album-period">时间或期数</label><input id="album-period" value={activeAlbum.period} maxLength={80} placeholder="例如 2026.01.01" onChange={(event) => updateAlbum("period", event.target.value)} /></div>
+                <div className="admin-field"><label htmlFor="album-cover">封面地址</label><input id="album-cover" value={activeAlbum.coverSrc} spellCheck={false} placeholder="留空时使用第一张图片" onChange={(event) => updateAlbum("coverSrc", event.target.value)} /></div>
+                <div className="admin-field admin-album-description"><label htmlFor="album-description">相册说明</label><textarea id="album-description" value={activeAlbum.description} maxLength={280} rows={3} onChange={(event) => updateAlbum("description", event.target.value)} /></div>
+              </div>
+            </section>
+          ) : null}
+
+          <div className="admin-album-workspace">
+            <aside className="admin-album-sidebar">
+              <header><div><span>图片列表</span><strong>{photos.length} 张</strong></div><button type="button" onClick={addPhoto} aria-label="添加图片"><ImagePlus aria-hidden="true" /></button></header>
+              {photos.length ? (
+                <div className="admin-album-list">
+                  {photos.map((photo, index) => (
+                    <button
+                      type="button"
+                      className={photo.clientId === activePhotoId ? "is-active" : ""}
+                      draggable
+                      aria-grabbed={draggingId === photo.clientId}
+                      onDragStart={(event) => { setDraggingId(photo.clientId); event.dataTransfer.effectAllowed = "move" }}
+                      onDragEnd={() => setDraggingId("")}
+                      onDragOver={(event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move" }}
+                      onDrop={(event) => { event.preventDefault(); movePhotoTo(draggingId, photo.clientId); setDraggingId("") }}
+                      onClick={() => { setActivePhotoId(photo.clientId); setError(""); setMessage("") }}
+                      key={photo.clientId}
+                    >
+                      <span className="admin-album-thumb">{canPreview(photo.src) ? <ResilientImage src={photo.src} alt="" loading="lazy" decoding="async" /> : <ImageOff aria-hidden="true" />}</span>
+                      <span className="admin-album-list-copy"><strong>{photo.caption || photo.alt || "未命名图片"}</strong><small>{photo.width} × {photo.height} · {sourceLabel(photo.src)}</small></span>
+                      <b><GripVertical aria-hidden="true" />{String(index + 1).padStart(2, "0")}</b>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="admin-album-list-empty"><Images aria-hidden="true" /><span>这个子相册还是空的</span><button type="button" onClick={addPhoto}>添加第一张图片</button></div>
+              )}
+            </aside>
+
+            {activePhoto ? (
+              <div className="admin-album-detail">
+                <div className="admin-album-detail-grid">
+                  <section className="admin-album-preview-panel" aria-label="图片预览">
+                    <div className="admin-album-preview-frame">
+                      {canPreview(activePhoto.src) ? <ResilientImage key={`${activePhoto.clientId}-${activePhoto.src}`} src={activePhoto.src} alt={activePhoto.alt || "相册图片预览"} decoding="async" /> : <div className="admin-album-preview-empty"><ImageOff aria-hidden="true" /><span>填写图片地址后显示预览</span></div>}
+                      <span>{String(activePhotoIndex + 1).padStart(2, "0")}</span>
                     </div>
-                  )}
-                  <span>{String(activeIndex + 1).padStart(2, "0")}</span>
-                </div>
-                <dl>
-                  <div><dt>类型</dt><dd>{orientation}</dd></div>
-                  <div><dt>尺寸</dt><dd>{active.width} × {active.height}</dd></div>
-                  <div><dt>来源</dt><dd>{sourceLabel(active.src)}</dd></div>
-                  <div><dt>拍摄时间</dt><dd>{active.takenAt ? active.takenAt.replace("T", " ") : "未读取"}</dd></div>
-                  <div><dt>原始文件</dt><dd title={active.originalName}>{active.originalName || "未知"}</dd></div>
-                </dl>
-              </section>
+                    <dl>
+                      <div><dt>子相册</dt><dd>{activeAlbum?.title}</dd></div>
+                      <div><dt>类型</dt><dd>{orientation}</dd></div>
+                      <div><dt>尺寸</dt><dd>{activePhoto.width} × {activePhoto.height}</dd></div>
+                      <div><dt>来源</dt><dd>{sourceLabel(activePhoto.src)}</dd></div>
+                      <div><dt>拍摄时间</dt><dd>{activePhoto.takenAt ? activePhoto.takenAt.replace("T", " ") : "未读取"}</dd></div>
+                      <div><dt>原始文件</dt><dd title={activePhoto.originalName}>{activePhoto.originalName || "未知"}</dd></div>
+                    </dl>
+                  </section>
 
-              <div className="admin-album-fields">
-                <div className="admin-field">
-                  <label htmlFor="album-photo-src">图片地址 *</label>
-                  <input
-                    id="album-photo-src"
-                    value={active.src}
-                    onChange={(event) => update("src", event.target.value)}
-                    placeholder="/blog-media/gallery/example.webp 或 https://..."
-                    spellCheck={false}
-                    autoComplete="off"
-                  />
-                  <small>支持站内绝对路径或 HTTPS 外链，不会裁切原图。</small>
-                </div>
-
-                <div className="admin-field-grid">
-                  <div className="admin-field">
-                    <label htmlFor="album-photo-caption">图片图注</label>
-                    <input
-                      id="album-photo-caption"
-                      value={active.caption}
-                      onChange={(event) => update("caption", event.target.value)}
-                      maxLength={100}
-                      placeholder="显示在图片下方"
-                    />
+                  <div className="admin-album-fields">
+                    <div className="admin-field"><label htmlFor="album-photo-src">图片地址 *</label><input id="album-photo-src" value={activePhoto.src} onChange={(event) => updatePhoto("src", event.target.value)} placeholder="/blog-media/gallery/example.webp 或 https://..." spellCheck={false} autoComplete="off" /><small>支持站内绝对路径或 HTTPS 外链，不会裁切原图。</small></div>
+                    <div className="admin-field-grid">
+                      <div className="admin-field"><label htmlFor="album-photo-caption">图片图注</label><input id="album-photo-caption" value={activePhoto.caption} onChange={(event) => updatePhoto("caption", event.target.value)} maxLength={100} placeholder="显示在图片下方" /></div>
+                      <div className="admin-field"><label htmlFor="album-photo-alt">替代文字 *</label><input id="album-photo-alt" value={activePhoto.alt} onChange={(event) => updatePhoto("alt", event.target.value)} maxLength={160} placeholder="描述图片内容" /></div>
+                    </div>
+                    <div className="admin-album-dimensions">
+                      <div className="admin-field"><label htmlFor="album-photo-width">原图宽度 *</label><input id="album-photo-width" type="number" inputMode="numeric" min={1} max={20000} value={activePhoto.width} onChange={(event) => updatePhoto("width", Number(event.target.value))} /></div>
+                      <div className="admin-field"><label htmlFor="album-photo-height">原图高度 *</label><input id="album-photo-height" type="number" inputMode="numeric" min={1} max={20000} value={activePhoto.height} onChange={(event) => updatePhoto("height", Number(event.target.value))} /></div>
+                      <button type="button" onClick={() => void detectDimensions()} disabled={detecting || !canPreview(activePhoto.src)}>{detecting ? <LoaderCircle className="spin" aria-hidden="true" /> : <Ruler aria-hidden="true" />}{detecting ? "读取中" : "自动读取尺寸"}</button>
+                    </div>
+                    <div className="admin-field-grid">
+                      <div className="admin-field"><label htmlFor="album-photo-taken-at">拍摄时间（EXIF）</label><input id="album-photo-taken-at" type="datetime-local" value={activePhoto.takenAt} onChange={(event) => updatePhoto("takenAt", event.target.value)} /></div>
+                      <div className="admin-field"><label htmlFor="album-photo-original-name">原始文件名</label><input id="album-photo-original-name" value={activePhoto.originalName} onChange={(event) => updatePhoto("originalName", event.target.value)} maxLength={240} /></div>
+                    </div>
+                    <div className="admin-album-actions">
+                      <div><button type="button" onClick={() => movePhoto(-1)} disabled={activePhotoIndex === 0}><ArrowUp aria-hidden="true" />前移</button><button type="button" onClick={() => movePhoto(1)} disabled={activePhotoIndex === photos.length - 1}><ArrowDown aria-hidden="true" />后移</button></div>
+                      <button className="danger" type="button" onClick={removePhoto}><Trash2 aria-hidden="true" />删除图片</button>
+                    </div>
                   </div>
-                  <div className="admin-field">
-                    <label htmlFor="album-photo-alt">替代文字 *</label>
-                    <input
-                      id="album-photo-alt"
-                      value={active.alt}
-                      onChange={(event) => update("alt", event.target.value)}
-                      maxLength={160}
-                      placeholder="描述图片内容"
-                    />
-                  </div>
-                </div>
-
-                <div className="admin-album-dimensions">
-                  <div className="admin-field">
-                    <label htmlFor="album-photo-width">原图宽度 *</label>
-                    <input
-                      id="album-photo-width"
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      max={20000}
-                      value={active.width}
-                      onChange={(event) => update("width", Number(event.target.value))}
-                    />
-                  </div>
-                  <div className="admin-field">
-                    <label htmlFor="album-photo-height">原图高度 *</label>
-                    <input
-                      id="album-photo-height"
-                      type="number"
-                      inputMode="numeric"
-                      min={1}
-                      max={20000}
-                      value={active.height}
-                      onChange={(event) => update("height", Number(event.target.value))}
-                    />
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => void detectDimensions()}
-                    disabled={detecting || !canPreview(active.src)}
-                  >
-                    {detecting ? <LoaderCircle className="spin" aria-hidden="true" /> : <Ruler aria-hidden="true" />}
-                    {detecting ? "读取中" : "自动读取尺寸"}
-                  </button>
-                </div>
-
-                <div className="admin-field-grid">
-                  <div className="admin-field">
-                    <label htmlFor="album-photo-taken-at">拍摄时间（EXIF）</label>
-                    <input id="album-photo-taken-at" type="datetime-local" value={active.takenAt} onChange={(event) => update("takenAt", event.target.value)} />
-                  </div>
-                  <div className="admin-field">
-                    <label htmlFor="album-photo-original-name">原始文件名</label>
-                    <input id="album-photo-original-name" value={active.originalName} onChange={(event) => update("originalName", event.target.value)} maxLength={240} />
-                  </div>
-                </div>
-
-                <div className="admin-album-actions">
-                  <div>
-                    <button type="button" onClick={() => movePhoto(-1)} disabled={activeIndex === 0}>
-                      <ArrowUp aria-hidden="true" />前移
-                    </button>
-                    <button type="button" onClick={() => movePhoto(1)} disabled={activeIndex === photos.length - 1}>
-                      <ArrowDown aria-hidden="true" />后移
-                    </button>
-                  </div>
-                  <button className="danger" type="button" onClick={removePhoto}>
-                    <Trash2 aria-hidden="true" />删除图片
-                  </button>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="admin-album-detail-empty"><Images aria-hidden="true" /><h3>这个子相册还没有图片</h3><p>添加图片后，可以设置图注、替代文字、尺寸和展示顺序。</p><button type="button" onClick={addPhoto}><ImagePlus aria-hidden="true" />添加图片</button></div>
+            )}
           </div>
-        ) : (
-          <div className="admin-album-detail-empty">
-            <Images aria-hidden="true" />
-            <h3>还没有相册图片</h3>
-            <p>添加图片后，可以在这里设置图注、替代文字、尺寸和展示顺序。</p>
-            <button type="button" onClick={addPhoto}><ImagePlus aria-hidden="true" />添加图片</button>
-          </div>
-        )}
-      </div>
+        </>
+      ) : (
+        <div className="admin-album-no-collections"><FolderOpen aria-hidden="true" /><h3>还没有子相册</h3><p>先创建一个子相册，再向其中上传或添加图片。</p><button type="button" onClick={addAlbum}><FolderPlus aria-hidden="true" />创建第一个相册</button></div>
+      )}
 
       <footer className="admin-album-footer">
-        <p className={error ? "is-error" : message ? "is-success" : ""} role="status">
-          {error || message || (dirty ? "有尚未保存的相册修改" : "图片尺寸用于保留原始比例，建议使用自动读取。")}
-        </p>
-        <ShimmerButton type="button" onClick={() => void save()} disabled={saving || !dirty}>
-          {saving ? <LoaderCircle className="spin" aria-hidden="true" /> : message ? <Check aria-hidden="true" /> : <Save aria-hidden="true" />}
-          {saving ? "保存中" : "保存相册"}
-        </ShimmerButton>
+        <p className={error ? "is-error" : message ? "is-success" : ""} role="status">{error || message || (dirty ? "有尚未保存的子相册修改" : `共 ${albums.length} 个子相册、${albums.reduce((total, album) => total + album.photos.length, 0)} 张图片`)}</p>
+        <ShimmerButton type="button" onClick={() => void save()} disabled={saving || !dirty}>{saving ? <LoaderCircle className="spin" aria-hidden="true" /> : message ? <Check aria-hidden="true" /> : <Save aria-hidden="true" />}{saving ? "保存中" : "保存全部相册"}</ShimmerButton>
       </footer>
     </section>
   )

@@ -1,9 +1,9 @@
 export const siteConfig = {
   name: "Ruawd",
   initials: "R",
-  title: "独立博客",
-  description: "Ruawd 的个人博客，记录技术实践、VPS 测评与数字生活。",
-  tagline: "把踩过的坑、用过的服务和想留下的内容认真记录下来。",
+  title: "个人主页",
+  description: "Ruawd 的个人主页，收录文章、相册、番组、友链与数字生活。",
+  tagline: "把文章、影像、兴趣和数字生活认真留在自己的页面里。",
   email: "admin@ruawd.de",
   url: "https://blog.ruawd.de",
   friendBacklinkTargets: ["https://p8.nz", "https://blog.ruawd.de"],

@@ -52,10 +52,31 @@ export const bangumiSettings = sqliteTable("bangumi_settings", {
   updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 })
 
+export const albumCollections = sqliteTable(
+  "album_collections",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    description: text("description").notNull().default(""),
+    period: text("period").notNull().default(""),
+    coverSrc: text("cover_src").notNull().default(""),
+    sortOrder: integer("sort_order").notNull(),
+    updatedBy: text("updated_by").notNull(),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [
+    uniqueIndex("album_collections_slug_unique").on(table.slug),
+    uniqueIndex("album_collections_sort_order_unique").on(table.sortOrder),
+  ],
+)
+
 export const albumPhotos = sqliteTable(
   "album_photos",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
+    albumSlug: text("album_slug").notNull().default("firefly"),
     src: text("src").notNull(),
     alt: text("alt").notNull(),
     caption: text("caption").notNull().default(""),
@@ -68,7 +89,10 @@ export const albumPhotos = sqliteTable(
     createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
     updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
   },
-  (table) => [uniqueIndex("album_photos_sort_order_unique").on(table.sortOrder)],
+  (table) => [
+    uniqueIndex("album_photos_album_order_unique").on(table.albumSlug, table.sortOrder),
+    index("album_photos_album_idx").on(table.albumSlug),
+  ],
 )
 
 export const friendLinks = sqliteTable(

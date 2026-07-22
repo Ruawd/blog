@@ -55,6 +55,7 @@
   font-size: 12px;
   cursor: pointer;
 }
+.admin-album-heading .admin-album-upload { background: var(--surface); }
 .admin-album-upload input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
 .admin-album-upload svg { width: 16px; height: 16px; }
 .admin-album-list > button[aria-grabbed="true"] { opacity: .55; }

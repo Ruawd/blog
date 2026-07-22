@@ -147,7 +147,7 @@ export function SiteSearch() {
                 id="site-search-input"
                 type="search"
                 value={query}
-                placeholder="搜索文章、标签、页面或拼音…"
+                placeholder="搜索文章、相册、页面或拼音…"
                 autoComplete="off"
                 onChange={(event) => setQuery(event.target.value)}
               />

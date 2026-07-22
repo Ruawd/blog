@@ -103,7 +103,12 @@ test("renders the site identity and real blog index", async () => {
   assert.match(home, /data-home-layout="two-x-inspired-v5"/)
   assert.match(home, /class="[^"]*\bhome-avatar-only\b[^"]*"/)
   assert.equal(home.match(/--pixel-delay:/g)?.length, 36)
-  assert.match(home, /在技术与生活之间，慢慢记录。/)
+  assert.match(home, /文章、相册、番组与数字生活，慢慢整理成自己的页面。/)
+  assert.match(home, /Ruawd 的个人主页，也是文章、影像与兴趣收藏的入口。/)
+  assert.match(home, /认识我/)
+  assert.match(home, /浏览相册/)
+  assert.match(home, /"@type":"ProfilePage"/)
+  assert.match(home, /"@type":"Person"/)
   assert.match(home, /class="home-background home-particle-background"/)
   assert.match(home, /主页快捷入口/)
   assert.match(home, /站内入口/)
@@ -138,7 +143,9 @@ test("serves search, feeds, manifests, and crawler metadata", async () => {
   }
 
   assert.match(await robotsResponse.text(), /Sitemap: https:\/\/blog\.ruawd\.de\/sitemap\.xml/)
-  assert.match(await sitemapResponse.text(), /https:\/\/blog\.ruawd\.de\/blog\/memos-casdoor-oauth-login/)
+  const sitemap = await sitemapResponse.text()
+  assert.match(sitemap, /https:\/\/blog\.ruawd\.de\/blog\/memos-casdoor-oauth-login/)
+  assert.match(sitemap, /https:\/\/blog\.ruawd\.de\/mine\/album\/firefly/)
   assert.match(await feedResponse.text(), /<rss version="2\.0"/)
   assert.equal((await manifestResponse.json()).short_name, "Ruawd")
   assert.match(ogResponse.headers.get("content-type") ?? "", /^image\//)
@@ -147,7 +154,7 @@ test("serves search, feeds, manifests, and crawler metadata", async () => {
   assert.equal(search.query, "lightsail")
   assert.ok(search.results.some((result) => result.href === "/blog/aws-lightsail-jp-5-review"))
   const pinyinSearch = await pinyinSearchResponse.json()
-  assert.ok(pinyinSearch.results.some((result) => result.href === "/mine/album"))
+  assert.ok(pinyinSearch.results.some((result) => result.href === "/mine/album/firefly"))
 })
 
 test("renders an article detail route with reading tools", async () => {
@@ -392,14 +399,41 @@ test("protects the management backend and supports draft-to-publish workflow", a
 
   const albumResponse = await request("/api/admin/album", { headers: { cookie } })
   assert.equal(albumResponse.status, 200)
-  const originalPhotos = (await albumResponse.json()).photos
+  const originalAlbums = (await albumResponse.json()).albums
+  assert.equal(originalAlbums.length, 1)
+  assert.equal(originalAlbums[0].slug, "firefly")
+  assert.equal(originalAlbums[0].title, "流萤相册")
+  assert.equal(originalAlbums[0].photoCount, 9)
+  const originalPhotos = originalAlbums[0].photos
   assert.equal(originalPhotos.length, 9)
+
+  const [initialAlbumDirectoryResponse, initialFireflyResponse] = await Promise.all([
+    request("/mine/album"),
+    request("/mine/album/firefly"),
+  ])
+  assert.equal(initialAlbumDirectoryResponse.status, 200)
+  assert.equal(initialFireflyResponse.status, 200)
+  const [initialAlbumDirectory, initialFirefly] = await Promise.all([
+    initialAlbumDirectoryResponse.text(),
+    initialFireflyResponse.text(),
+  ])
+  assert.match(initialAlbumDirectory, /流萤相册/)
+  assert.match(initialAlbumDirectory, /href="\/mine\/album\/firefly"/)
+  assert.match(initialAlbumDirectory, /9[\s\S]{0,30}张图片/)
+  assert.equal(initialFirefly.match(/class="album-item"/g)?.length, 9)
 
   const invalidAlbumResponse = await request("/api/admin/album", {
     method: "PUT",
     headers: authHeaders,
     body: JSON.stringify({
-      photos: [{ src: "http://example.com/image.jpg", alt: "不安全图片", caption: "", width: 100, height: 100 }],
+      albums: [{
+        slug: "unsafe-album",
+        title: "不安全相册",
+        description: "",
+        period: "",
+        coverSrc: "",
+        photos: [{ src: "http://example.com/image.jpg", alt: "不安全图片", caption: "", width: 100, height: 100, takenAt: "", originalName: "" }],
+      }],
     }),
   })
   assert.equal(invalidAlbumResponse.status, 400)
@@ -408,35 +442,86 @@ test("protects the management backend and supports draft-to-publish workflow", a
     method: "PUT",
     headers: authHeaders,
     body: JSON.stringify({
-      photos: [
+      albums: [
         {
-          src: originalPhotos[1].src,
-          alt: originalPhotos[1].alt,
-          caption: "后台前移图片",
-          width: originalPhotos[1].width,
-          height: originalPhotos[1].height,
+          slug: "firefly",
+          title: "流萤相册",
+          description: "崩坏：星穹铁道中的流萤插画收藏。",
+          period: "2026.01.01",
+          coverSrc: originalAlbums[0].coverSrc,
+          photos: [
+            {
+              src: originalPhotos[1].src,
+              alt: originalPhotos[1].alt,
+              caption: "后台前移图片",
+              width: originalPhotos[1].width,
+              height: originalPhotos[1].height,
+              takenAt: originalPhotos[1].takenAt,
+              originalName: originalPhotos[1].originalName,
+            },
+            {
+              src: "/blog-media/profile/avatar.webp",
+              alt: "后台新增相册图片",
+              caption: "后台新增图片",
+              width: 640,
+              height: 640,
+              takenAt: "2026-07-23T08:00",
+              originalName: "avatar.webp",
+            },
+          ],
         },
         {
-          src: "/blog-media/profile/avatar.webp",
-          alt: "后台新增相册图片",
-          caption: "后台新增图片",
-          width: 640,
-          height: 640,
+          slug: "daily-notes",
+          title: "日常切片",
+          description: "生活里值得留下的小片段。",
+          period: "2026.07",
+          coverSrc: "/blog-media/profile/avatar.webp",
+          photos: [{
+            src: "/blog-media/profile/avatar.webp",
+            alt: "日常切片封面",
+            caption: "第二个子相册图片",
+            width: 640,
+            height: 640,
+            takenAt: "",
+            originalName: "avatar.webp",
+          }],
         },
       ],
     }),
   })
   assert.equal(albumSaveResponse.status, 200)
-  const savedPhotos = (await albumSaveResponse.json()).photos
-  assert.equal(savedPhotos.length, 2)
-  assert.equal(savedPhotos[0].caption, "后台前移图片")
-  assert.equal(savedPhotos[0].sortOrder, 0)
-  assert.equal(savedPhotos[1].alt, "后台新增相册图片")
+  const savedAlbums = (await albumSaveResponse.json()).albums
+  assert.equal(savedAlbums.length, 2)
+  assert.equal(savedAlbums[0].sortOrder, 0)
+  assert.equal(savedAlbums[0].photoCount, 2)
+  assert.equal(savedAlbums[0].photos[0].caption, "后台前移图片")
+  assert.equal(savedAlbums[0].photos[0].sortOrder, 0)
+  assert.equal(savedAlbums[0].photos[1].alt, "后台新增相册图片")
+  assert.equal(savedAlbums[1].slug, "daily-notes")
+  assert.equal(savedAlbums[1].sortOrder, 1)
+  assert.equal(savedAlbums[1].photoCount, 1)
 
-  const editedAlbum = await (await request("/mine/album")).text()
-  assert.match(editedAlbum, /共 [\s\S]{0,40}2[\s\S]{0,40} 张/)
-  assert.match(editedAlbum, /后台前移图片/)
-  assert.match(editedAlbum, /后台新增相册图片/)
+  const [editedAlbumDirectoryResponse, editedFireflyResponse, dailyAlbumResponse] = await Promise.all([
+    request("/mine/album"),
+    request("/mine/album/firefly"),
+    request("/mine/album/daily-notes"),
+  ])
+  assert.equal(editedAlbumDirectoryResponse.status, 200)
+  assert.equal(editedFireflyResponse.status, 200)
+  assert.equal(dailyAlbumResponse.status, 200)
+  const [editedAlbumDirectory, editedFirefly, dailyAlbum] = await Promise.all([
+    editedAlbumDirectoryResponse.text(),
+    editedFireflyResponse.text(),
+    dailyAlbumResponse.text(),
+  ])
+  assert.match(editedAlbumDirectory, /流萤相册/)
+  assert.match(editedAlbumDirectory, /日常切片/)
+  assert.match(editedAlbumDirectory, /href="\/mine\/album\/daily-notes"/)
+  assert.match(editedFirefly, /后台前移图片/)
+  assert.match(editedFirefly, /后台新增图片/)
+  assert.equal(editedFirefly.match(/class="album-item"/g)?.length, 2)
+  assert.match(dailyAlbum, /第二个子相册图片/)
+  assert.equal(dailyAlbum.match(/class="album-item"/g)?.length, 1)
 
   const createBackupResponse = await request("/api/admin/backups", {
     method: "POST",
@@ -765,12 +850,13 @@ test("supports threaded comments, likes, reactions, and article isolation", asyn
 })
 
 test("keeps the editor responsive, stable, and free of emoji controls", async () => {
-  const [publicStyles, enhancements, adminStyles, adminEnhancements, editor, consoleUi, session, codeBlock] = await Promise.all([
+  const [publicStyles, enhancements, adminStyles, adminEnhancements, editor, albumEditor, consoleUi, session, codeBlock] = await Promise.all([
     readFile(join(projectRoot, "app", "globals.css"), "utf8"),
     readFile(join(projectRoot, "app", "enhancements.css"), "utf8"),
     readFile(join(projectRoot, "app", "admin", "admin-base.css"), "utf8"),
     readFile(join(projectRoot, "app", "admin", "admin-enhancements.css"), "utf8"),
     readFile(join(projectRoot, "components", "admin-editor.tsx"), "utf8"),
+    readFile(join(projectRoot, "components", "admin-album-editor.tsx"), "utf8"),
     readFile(join(projectRoot, "components", "admin-console.tsx"), "utf8"),
     readFile(join(projectRoot, "lib", "admin-session.ts"), "utf8"),
     readFile(join(projectRoot, "components", "article-code-block.tsx"), "utf8"),
@@ -789,6 +875,11 @@ test("keeps the editor responsive, stable, and free of emoji controls", async ()
   assert.match(editor, /支持 Markdown/)
   assert.match(editor, /解锁并编辑/)
   assert.match(editor, /encryptArticleContent/)
+  assert.match(albumEditor, /子相册管理/)
+  assert.match(albumEditor, /新增相册/)
+  assert.match(albumEditor, /保存全部相册/)
+  assert.match(styles, /\.admin-album-collections/)
+  assert.match(styles, /\.admin-album-manager \.admin-field input,[\s\S]*font-size: 16px/)
   assert.match(consoleUi, /页面内容/)
   assert.match(consoleUi, /相册/)
   assert.match(consoleUi, /友链/)

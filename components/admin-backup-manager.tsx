@@ -79,7 +79,7 @@ export function AdminBackupManager() {
       const form = new FormData()
       form.set("file", file)
       await readJson(await fetch("/api/admin/backups/restore", { method: "POST", body: form }))
-      setMessage("恢复文件已通过完整性检查。请重启博客容器使其生效；当前数据库尚未被覆盖。")
+      setMessage("恢复文件已通过完整性检查。请重启网站容器使其生效；当前数据库尚未被覆盖。")
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "恢复文件校验失败")
     } finally {

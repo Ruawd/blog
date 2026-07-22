@@ -10,7 +10,8 @@ import { siteConfig } from "@/lib/site"
 
 export const metadata: Metadata = {
   title: "关于我",
-  description: "关于 Ruawd 与 Ruawd Blog。",
+  description: "关于 Ruawd 与这个个人主页。",
+  alternates: { canonical: "/about/me" },
 }
 
 export const dynamic = "force-dynamic"
@@ -27,10 +28,10 @@ export default async function AboutMePage() {
       <div className="about-layout migrated-about">
         <article className="about-story" aria-labelledby="about-story-title">
           <p className="section-kicker">ABOUT THIS SITE</p>
-          <h2 id="about-story-title">记录技术实践，也记录<Highlighter>真实使用体验</Highlighter>。</h2>
+          <h2 id="about-story-title">不只记录技术，也收藏<Highlighter>喜欢的生活片段</Highlighter>。</h2>
           <p>
-            这里主要整理自建服务、服务器部署、VPS 测评和实际使用中遇到的问题。
-            也会记录数字生活里值得留下的片段，以及亲自用过之后的真实感受。
+            这里既整理自建服务、服务器部署、VPS 测评和实际使用中遇到的问题，
+            也收录相册、番组计划、友链，以及数字生活里值得留下的片段。
           </p>
           <p>
             从 2025 年 10 月 22 日开始记录，希望这些踩坑过程和使用体验也能帮到后来的人。
@@ -47,7 +48,7 @@ export default async function AboutMePage() {
           <h2>Ruawd</h2>
           <p>Hello, I&apos;m Ruawd.</p>
           <dl>
-            <div><dt>博客</dt><dd>{siteConfig.url}</dd></div>
+            <div><dt>主页</dt><dd>{siteConfig.url}</dd></div>
             <div><dt>语言</dt><dd>简体中文</dd></div>
             <div><dt>开始记录</dt><dd>2025.10.22</dd></div>
           </dl>

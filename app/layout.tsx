@@ -18,11 +18,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   metadataBase: new URL(siteConfig.url),
   title: {
-    default: "Ruawd Blog",
-    template: "%s | Ruawd Blog",
+    default: "Ruawd · 个人主页",
+    template: "%s | Ruawd",
   },
-  description: "Ruawd 的个人博客，记录技术实践、VPS 测评与数字生活。",
-  applicationName: "Ruawd Blog",
+  description: siteConfig.description,
+  applicationName: "Ruawd 个人主页",
   authors: [{ name: siteConfig.name, url: siteConfig.url }],
   creator: siteConfig.name,
   publisher: siteConfig.name,
@@ -38,18 +38,18 @@ export const metadata: Metadata = {
     apple: siteConfig.avatar,
   },
   openGraph: {
-    title: "Ruawd Blog",
-    description: "记录技术实践、VPS 测评与数字生活。",
+    title: "Ruawd · 个人主页",
+    description: siteConfig.description,
     type: "website",
     locale: "zh_CN",
     url: "/",
-    siteName: "Ruawd Blog",
-    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Ruawd Blog" }],
+    siteName: "Ruawd 个人主页",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630, alt: "Ruawd 个人主页" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ruawd Blog",
-    description: "记录技术实践、VPS 测评与数字生活。",
+    title: "Ruawd · 个人主页",
+    description: siteConfig.description,
     images: ["/opengraph-image"],
   },
   robots: { index: true, follow: true },
@@ -61,6 +61,21 @@ export const viewport: Viewport = {
     { media: "(prefers-color-scheme: light)", color: "#f7f7f7" },
     { media: "(prefers-color-scheme: dark)", color: "#111111" },
   ],
+}
+
+const profileJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "ProfilePage",
+  name: "Ruawd 的个人主页",
+  url: siteConfig.url,
+  description: siteConfig.description,
+  mainEntity: {
+    "@type": "Person",
+    name: siteConfig.name,
+    url: siteConfig.url,
+    image: new URL(siteConfig.avatar, siteConfig.url).toString(),
+    sameAs: [siteConfig.github, siteConfig.bilibili],
+  },
 }
 
 export default function RootLayout({
@@ -84,6 +99,10 @@ export default function RootLayout({
             } catch {}
           })();
         ` }} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(profileJsonLd).replaceAll("<", "\\u003c") }}
+        />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable}`}>
         {children}

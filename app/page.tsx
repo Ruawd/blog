@@ -8,7 +8,6 @@ import {
   Heart,
   ImageIcon,
   Link2,
-  MessageSquare,
   UsersRound,
 } from "lucide-react"
 
@@ -25,24 +24,31 @@ import { getPageContent } from "@/lib/page-content"
 export const dynamic = "force-dynamic"
 
 const heroActions = [
-  { label: "阅读博客", href: "/blog", icon: BookOpen, primary: true },
-  { label: "给我留言", href: "/message", icon: MessageSquare },
-  { label: "查看友链", href: "/friends", icon: UsersRound },
+  { label: "认识我", href: "/about/me", icon: CircleUserRound, primary: true },
+  { label: "浏览相册", href: "/mine/album", icon: ImageIcon },
+  { label: "阅读文章", href: "/blog", icon: BookOpen },
 ] as const
 
 const featureLinks = [
+  {
+    label: "关于我",
+    href: "/about/me",
+    description: "这里是 Ruawd 的个人主页，也是文章、影像与兴趣收藏的入口。",
+    action: "认识我",
+    icon: CircleUserRound,
+    featured: true,
+  },
   {
     label: "博客",
     href: "/blog",
     description: "技术实践、VPS 测评与数字生活记录。",
     action: "阅读文章",
     icon: BookOpen,
-    featured: true,
   },
   {
     label: "相册",
     href: "/mine/album",
-    description: "日常与远方的影像切片。",
+    description: "按主题整理插画、日常与远方的影像切片。",
     action: "打开相册",
     icon: ImageIcon,
   },
@@ -59,13 +65,6 @@ const featureLinks = [
     description: "我在互联网上遇见的好邻居。",
     action: "拜访邻居",
     icon: UsersRound,
-  },
-  {
-    label: "关于我",
-    href: "/about/me",
-    description: "认识屏幕后的 Ruawd。",
-    action: "继续了解",
-    icon: CircleUserRound,
   },
   {
     label: "常用链接",
