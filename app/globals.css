@@ -1067,6 +1067,7 @@ a {
   min-width: 0;
   flex: 1;
   gap: 8px;
+  padding-block: 4px;
   overflow: hidden;
 }
 
