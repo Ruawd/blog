@@ -5728,6 +5728,84 @@ a {
 }
 
 @media (max-width: 640px) {
+  .admin-login-page {
+    min-height: 100dvh;
+    overflow-x: hidden;
+    overflow-y: auto;
+    padding:
+      max(18px, env(safe-area-inset-top))
+      12px
+      max(18px, env(safe-area-inset-bottom));
+  }
+
+  .admin-login-card {
+    width: 100%;
+    padding: 30px 24px 28px;
+  }
+
+  .admin-login-card::before {
+    inset: 7px;
+  }
+
+  .admin-login-brand {
+    min-height: 44px;
+    gap: 10px;
+  }
+
+  .admin-login-brand img {
+    width: 40px;
+    height: 40px;
+  }
+
+  .admin-login-card > header {
+    margin: 34px 0 28px;
+  }
+
+  .admin-login-card h1 {
+    margin-block: 10px 16px;
+    font-size: clamp(3rem, 16vw, 4rem);
+    line-height: 0.98;
+  }
+
+  .admin-login-card > header > p:last-child,
+  .admin-login-provider {
+    font-size: 15px;
+    line-height: 1.7;
+  }
+
+  .admin-login-form {
+    display: grid;
+    min-width: 0;
+    grid-template-columns: 44px minmax(0, 1fr);
+    column-gap: 14px;
+    align-items: start;
+  }
+
+  .admin-login-icon {
+    position: static;
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .admin-login-provider {
+    min-width: 0;
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .admin-login-error,
+  .admin-login-form > button {
+    grid-column: 1 / -1;
+  }
+
+  .admin-login-form > button {
+    min-height: 56px;
+    margin-top: 24px;
+    font-size: 15px;
+  }
+
   .admin-header {
     padding-inline: 14px;
   }
@@ -5800,6 +5878,26 @@ a {
 
   .admin-preview-canvas h1 {
     font-size: 2.35rem;
+  }
+}
+
+@media (max-width: 360px) {
+  .admin-login-card {
+    padding: 26px 20px 24px;
+  }
+
+  .admin-login-card h1 {
+    font-size: clamp(2.7rem, 16vw, 3.4rem);
+  }
+
+  .admin-login-form {
+    grid-template-columns: 40px minmax(0, 1fr);
+    column-gap: 12px;
+  }
+
+  .admin-login-icon {
+    width: 40px;
+    height: 40px;
   }
 }
 
