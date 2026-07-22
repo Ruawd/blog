@@ -6,7 +6,7 @@ import { useEffect, useState } from "react"
 import { BorderBeam } from "@/components/ui/border-beam"
 import { siteConfig } from "@/lib/site"
 
-export function HomeAvatar() {
+export function HomeAvatar({ name = "Ruawd", note = "在技术与生活之间，慢慢记录。" }: { name?: string; note?: string }) {
   const [hasLoaded, setHasLoaded] = useState(false)
   const [isReady, setIsReady] = useState(false)
 
@@ -47,8 +47,8 @@ export function HomeAvatar() {
       </div>
 
       <div className="home-avatar-copy">
-        <p className="home-avatar-name">Ruawd</p>
-        <p className="home-avatar-note">在技术与生活之间，慢慢记录。</p>
+        <p className="home-avatar-name">{name}</p>
+        <p className="home-avatar-note">{note}</p>
       </div>
     </div>
   )

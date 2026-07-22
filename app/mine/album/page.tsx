@@ -2,20 +2,26 @@ import type { Metadata } from "next"
 import Image from "next/image"
 
 import { SiteFrame } from "@/components/site-frame"
+import { ManagedPageBody } from "@/components/managed-page-body"
 import { albumPhotos } from "@/lib/migrated-content"
+import { getPageContent } from "@/lib/page-content"
 
 export const metadata: Metadata = {
   title: "相册",
   description: "可爱流萤与 Ruawd 的相册收藏。",
 }
 
-export default function AlbumPage() {
+export const dynamic = "force-dynamic"
+
+export default async function AlbumPage() {
+  const page = await getPageContent("album")
   return (
     <SiteFrame
-      eyebrow="MY / ALBUM"
-      title="相册"
-      description="飞萤之火自无梦的长夜亮起，绽放在终竟的明天。"
+      eyebrow={page.eyebrow}
+      title={page.title}
+      description={page.description}
     >
+      <ManagedPageBody content={page.body} />
       <section className="page-section" aria-labelledby="album-title">
         <header className="page-section-heading">
           <div>

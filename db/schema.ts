@@ -26,3 +26,31 @@ export const posts = sqliteTable(
     index("posts_status_published_idx").on(table.status, table.publishedAt),
   ],
 )
+
+export const pageContents = sqliteTable("page_contents", {
+  key: text("key").primaryKey(),
+  eyebrow: text("eyebrow").notNull().default(""),
+  title: text("title").notNull().default(""),
+  description: text("description").notNull().default(""),
+  body: text("body").notNull().default(""),
+  updatedBy: text("updated_by").notNull(),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+})
+
+export const comments = sqliteTable(
+  "comments",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    scope: text("scope", { enum: ["guestbook", "article"] }).notNull(),
+    target: text("target").notNull(),
+    nickname: text("nickname").notNull(),
+    email: text("email"),
+    website: text("website"),
+    content: text("content").notNull(),
+    status: text("status", { enum: ["approved", "hidden"] }).notNull().default("approved"),
+    ipHash: text("ip_hash").notNull().default(""),
+    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  },
+  (table) => [index("comments_scope_target_idx").on(table.scope, table.target, table.status, table.createdAt)],
+)

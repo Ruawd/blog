@@ -14,8 +14,12 @@ import {
 
 import { HomeAvatar } from "@/components/home-avatar"
 import { HomeParticleBackground } from "@/components/home-background-switcher"
+import { ManagedPageBody } from "@/components/managed-page-body"
 import { SiteFooter } from "@/components/site-footer"
 import { SiteHeader } from "@/components/site-header"
+import { getPageContent } from "@/lib/page-content"
+
+export const dynamic = "force-dynamic"
 
 const heroActions = [
   { label: "阅读博客", href: "/blog", icon: BookOpen, primary: true },
@@ -76,7 +80,8 @@ const featureLinks = [
   },
 ] as const
 
-export default function Home() {
+export default async function Home() {
+  const page = await getPageContent("home")
   return (
     <div className="site-shell home-shell" data-home-layout="two-x-inspired-v5">
       <a className="skip-link" href="#main">跳到主要内容</a>
@@ -86,8 +91,8 @@ export default function Home() {
           <HomeParticleBackground />
 
           <div className="home-landing-inner">
-            <h1 className="sr-only" id="home-title">Ruawd</h1>
-            <HomeAvatar />
+            <h1 className="sr-only" id="home-title">{page.title}</h1>
+            <HomeAvatar name={page.title} note={page.description} />
 
             <nav className="home-hero-actions" aria-label="主页快捷入口">
               {heroActions.map((item) => {
@@ -111,6 +116,8 @@ export default function Home() {
             <ChevronDown aria-hidden="true" />
           </a>
         </section>
+
+        <ManagedPageBody content={page.body} />
 
         <section className="home-explore" id="home-explore" aria-labelledby="home-explore-title">
           <header className="home-explore-heading">

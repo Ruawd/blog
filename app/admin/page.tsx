@@ -3,7 +3,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { ArrowUpRight } from "lucide-react"
 
-import { AdminEditor } from "@/components/admin-editor"
+import { AdminConsole } from "@/components/admin-console"
 import { AdminLogoutButton } from "@/components/admin-logout-button"
 import { requireAdminSession } from "@/lib/admin-session"
 import { siteConfig } from "@/lib/site"
@@ -11,7 +11,7 @@ import { siteConfig } from "@/lib/site"
 export const dynamic = "force-dynamic"
 
 export const metadata: Metadata = {
-  title: "文章管理",
+  title: "内容管理",
   robots: { index: false, follow: false },
 }
 
@@ -20,7 +20,7 @@ export default async function AdminPage() {
 
   return (
     <div className="admin-page">
-      <a className="skip-link" href="#admin-main">跳到文章编辑区</a>
+      <a className="skip-link" href="#admin-main">跳到内容管理区</a>
       <header className="admin-header">
         <Link className="admin-brand" href="/" aria-label="返回网站主页">
           <Image src={siteConfig.avatar} alt="" width={34} height={34} unoptimized />
@@ -39,13 +39,13 @@ export default async function AdminPage() {
         <header className="admin-intro">
           <div>
             <p className="section-kicker">EDITORIAL / CONSOLE</p>
-            <h1>文章管理</h1>
+            <h1>内容管理</h1>
           </div>
           <p>
-            写作、编辑与实时预览都在这里完成。草稿不会出现在博客中，发布后前台立即可见。
+            在这里编辑文章与各个页面，并管理留言和每篇文章的独立评论。
           </p>
         </header>
-        <AdminEditor displayName={user.username} />
+        <AdminConsole displayName={user.username} />
       </main>
     </div>
   )

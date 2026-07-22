@@ -3,8 +3,10 @@ import Link from "next/link"
 import { ArrowRight, LockKeyhole } from "lucide-react"
 
 import { SiteFrame } from "@/components/site-frame"
+import { ManagedPageBody } from "@/components/managed-page-body"
 import { ResilientImage } from "@/components/resilient-image"
 import { listPublishedBlogPosts } from "@/lib/blog-repository"
+import { getPageContent } from "@/lib/page-content"
 
 export const dynamic = "force-dynamic"
 
@@ -20,14 +22,15 @@ const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
 })
 
 export default async function BlogPage() {
-  const blogPosts = await listPublishedBlogPosts()
+  const [blogPosts, page] = await Promise.all([listPublishedBlogPosts(), getPageContent("blog")])
 
   return (
     <SiteFrame
-      eyebrow="JOURNAL / BLOG"
-      title="博客"
-      description="技术实践、VPS 测评与数字生活记录。"
+      eyebrow={page.eyebrow}
+      title={page.title}
+      description={page.description}
     >
+      <ManagedPageBody content={page.body} />
       <section className="page-section" aria-labelledby="latest-posts-title">
         <div className="page-section-heading">
           <div>

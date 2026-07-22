@@ -2,20 +2,26 @@ import type { Metadata } from "next"
 import { ArrowUpRight } from "lucide-react"
 
 import { SiteFrame } from "@/components/site-frame"
+import { ManagedPageBody } from "@/components/managed-page-body"
 import { personalLinks } from "@/lib/migrated-content"
+import { getPageContent } from "@/lib/page-content"
 
 export const metadata: Metadata = {
   title: "链接",
   description: "Ruawd 的个人链接与联系方式。",
 }
 
-export default function LinksPage() {
+export const dynamic = "force-dynamic"
+
+export default async function LinksPage() {
+  const page = await getPageContent("links")
   return (
     <SiteFrame
-      eyebrow="LINKS / 个人链接"
-      title="在别处找到我"
-      description="我的个人主页、联系方式与常用站外入口。"
+      eyebrow={page.eyebrow}
+      title={page.title}
+      description={page.description}
     >
+      <ManagedPageBody content={page.body} />
       <section className="link-group" aria-labelledby="personal-links-title">
         <header>
           <p className="section-kicker">PROFILE</p>

@@ -3,6 +3,8 @@ import Image from "next/image"
 import { Code2, Mail } from "lucide-react"
 
 import { SiteFrame } from "@/components/site-frame"
+import { ManagedPageBody } from "@/components/managed-page-body"
+import { getPageContent } from "@/lib/page-content"
 import { siteConfig } from "@/lib/site"
 
 export const metadata: Metadata = {
@@ -10,13 +12,17 @@ export const metadata: Metadata = {
   description: "关于 Ruawd 与 Ruawd Blog。",
 }
 
-export default function AboutMePage() {
+export const dynamic = "force-dynamic"
+
+export default async function AboutMePage() {
+  const page = await getPageContent("about")
   return (
     <SiteFrame
-      eyebrow="ABOUT / 关于我"
-      title="你好，我是 Ruawd"
-      description="Hello, I'm Ruawd. 欢迎来到我的个人博客。"
+      eyebrow={page.eyebrow}
+      title={page.title}
+      description={page.description}
     >
+      <ManagedPageBody content={page.body} />
       <div className="about-layout migrated-about">
         <article className="about-story" aria-labelledby="about-story-title">
           <p className="section-kicker">ABOUT THIS SITE</p>

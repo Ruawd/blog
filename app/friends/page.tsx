@@ -2,7 +2,9 @@ import type { Metadata } from "next"
 import { ArrowUpRight } from "lucide-react"
 
 import { SiteFrame } from "@/components/site-frame"
+import { ManagedPageBody } from "@/components/managed-page-body"
 import { friends } from "@/lib/migrated-content"
+import { getPageContent } from "@/lib/page-content"
 import { siteConfig } from "@/lib/site"
 
 export const metadata: Metadata = {
@@ -10,13 +12,17 @@ export const metadata: Metadata = {
   description: "Ruawd Blog 的友情链接与友链申请说明。",
 }
 
-export default function FriendsPage() {
+export const dynamic = "force-dynamic"
+
+export default async function FriendsPage() {
+  const page = await getPageContent("friends")
   return (
     <SiteFrame
-      eyebrow="NEIGHBORS / FRIENDS"
-      title="友链"
-      description="在互联网上遇见的朋友与值得常去的网站。"
+      eyebrow={page.eyebrow}
+      title={page.title}
+      description={page.description}
     >
+      <ManagedPageBody content={page.body} />
       <section className="page-section" aria-labelledby="friends-title">
         <div className="page-section-heading">
           <div>

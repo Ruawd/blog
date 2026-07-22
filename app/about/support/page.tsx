@@ -2,11 +2,15 @@ import type { Metadata } from "next"
 import Image from "next/image"
 
 import { SiteFrame } from "@/components/site-frame"
+import { ManagedPageBody } from "@/components/managed-page-body"
+import { getPageContent } from "@/lib/page-content"
 
 export const metadata: Metadata = {
   title: "打赏",
   description: "支持 Ruawd Blog 的服务器维护、内容创作和功能开发。",
 }
+
+export const dynamic = "force-dynamic"
 
 const supportMethods = [
   {
@@ -21,13 +25,15 @@ const supportMethods = [
   },
 ] as const
 
-export default function SupportPage() {
+export default async function SupportPage() {
+  const page = await getPageContent("support")
   return (
     <SiteFrame
-      eyebrow="SUPPORT / 自愿支持"
-      title="支持 Ruawd Blog"
-      description="你的赞助将用于服务器维护、内容创作和功能开发。"
+      eyebrow={page.eyebrow}
+      title={page.title}
+      description={page.description}
     >
+      <ManagedPageBody content={page.body} />
       <section className="support-intro" aria-labelledby="support-principle-title">
         <div>
           <p className="section-kicker">A SMALL NOTE</p>

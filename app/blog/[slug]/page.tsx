@@ -1,10 +1,11 @@
 import type { Metadata } from "next"
 import Link from "next/link"
-import { ArrowLeft, ArrowUpRight, CalendarDays, Clock3, LockKeyhole, MessageSquare } from "lucide-react"
+import { ArrowLeft, ArrowUpRight, CalendarDays, Clock3, LockKeyhole } from "lucide-react"
 import { notFound } from "next/navigation"
 
 import { ArticleMarkdown } from "@/components/article-markdown"
 import { ArticleReadingTools } from "@/components/article-reading-tools"
+import { CommentSection } from "@/components/comment-section"
 import { ProtectedArticle } from "@/components/protected-article"
 import { ResilientImage } from "@/components/resilient-image"
 import { SiteFrame } from "@/components/site-frame"
@@ -102,12 +103,7 @@ export default async function BlogPostPage({
               ) : null}
             </footer>
 
-            <section className="article-comments" id="article-comments" aria-labelledby="article-comments-title">
-              <p className="section-kicker">COMMENTS</p>
-              <h2 id="article-comments-title" tabIndex={-1}>评论</h2>
-              <p>想补充文章内容或交流细节，可以继续在留言页里说。</p>
-              <Link href="/message"><MessageSquare aria-hidden="true" />前往留言</Link>
-            </section>
+            <CommentSection scope="article" target={post.slug} title="文章评论" />
           </div>
 
           <ArticleReadingTools headings={headings} />

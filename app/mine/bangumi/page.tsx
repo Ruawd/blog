@@ -2,19 +2,25 @@ import type { Metadata } from "next"
 import { Clapperboard } from "lucide-react"
 
 import { SiteFrame } from "@/components/site-frame"
+import { ManagedPageBody } from "@/components/managed-page-body"
+import { getPageContent } from "@/lib/page-content"
 
 export const metadata: Metadata = {
   title: "番组计划",
   description: "Ruawd 的番组计划。",
 }
 
-export default function BangumiPage() {
+export const dynamic = "force-dynamic"
+
+export default async function BangumiPage() {
+  const page = await getPageContent("bangumi")
   return (
     <SiteFrame
-      eyebrow="MY / BANGUMI"
-      title="番组计划"
-      description="想看、在看与看过的动画记录；片单目前还没有添加条目。"
+      eyebrow={page.eyebrow}
+      title={page.title}
+      description={page.description}
     >
+      <ManagedPageBody content={page.body} />
       <section className="empty-state" aria-labelledby="bangumi-empty-title">
         <Clapperboard aria-hidden="true" />
         <p className="section-kicker">NO ENTRIES YET</p>

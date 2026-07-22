@@ -1,5 +1,6 @@
 import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
+import { siteConfig } from "@/lib/site"
 
 import "./globals.css"
 
@@ -20,8 +21,9 @@ export const metadata: Metadata = {
   },
   description: "Ruawd 的个人博客，记录技术实践、VPS 测评与数字生活。",
   icons: {
-    icon: "/favicon.ico",
-    shortcut: "/favicon.ico",
+    icon: [{ url: siteConfig.avatar, type: "image/webp" }],
+    shortcut: siteConfig.avatar,
+    apple: siteConfig.avatar,
   },
   openGraph: {
     title: "Ruawd Blog",
