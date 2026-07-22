@@ -9,11 +9,18 @@ type SiteFrameProps = {
   title: string
   description: string
   children: ReactNode
+  variant?: "default" | "article"
 }
 
-export function SiteFrame({ eyebrow, title, description, children }: SiteFrameProps) {
+export function SiteFrame({
+  eyebrow,
+  title,
+  description,
+  children,
+  variant = "default",
+}: SiteFrameProps) {
   return (
-    <div className="site-shell">
+    <div className={variant === "article" ? "site-shell article-shell" : "site-shell"}>
       <a className="skip-link" href="#main">跳到主要内容</a>
       <SiteHeader />
       <main className="subpage-main" id="main">

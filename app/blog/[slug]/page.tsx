@@ -60,6 +60,7 @@ export default async function BlogPostPage({
       eyebrow={`BLOG / ${post.category}`}
       title={post.title}
       description={post.description}
+      variant="article"
     >
       <article className="article-page">
         <header className="article-details">

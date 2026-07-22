@@ -74,16 +74,28 @@ test("renders an article detail route", async () => {
   const coverHtml = await coverResponse.text()
   assert.match(html, /在 Memos 中接入 Casdoor 登录并获取用户信息/)
   assert.match(html, /Casdoor Application 配置/)
+  assert.match(coverHtml, /class="site-shell article-shell"/)
   assert.match(coverHtml, /class="article-cover"/)
 })
 
 test("keeps blog hover feedback layout-stable", async () => {
   const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8")
   assert.match(styles, /aspect-ratio: 4 \/ 3;/)
-  assert.match(styles, /transition: background-color 200ms ease-out;/)
+  assert.match(styles, /\.post-card::before/)
+  assert.match(styles, /transform: scaleX\(0\);/)
+  assert.match(styles, /transform: scale\(1\.045\);/)
+  assert.match(styles, /transform: translateX\(6px\);/)
   assert.doesNotMatch(styles, /\.post-card:hover\s*\{[^}]*padding-inline:/)
   assert.match(styles, /\.post-card:hover \.post-cover/)
   assert.match(styles, /\.post-card:hover \.post-read-link svg/)
+})
+
+test("keeps article pages compact and readable", async () => {
+  const styles = await readFile(new URL("../app/globals.css", import.meta.url), "utf8")
+  assert.match(styles, /\.article-shell \.page-hero-copy h1/)
+  assert.match(styles, /font-size: clamp\(2\.75rem, 5\.25vw, 5\.75rem\);/)
+  assert.match(styles, /line-height: 1\.08;/)
+  assert.match(styles, /max-height: min\(54svh, 560px\);/)
 })
 
 test("keeps the protected article encrypted in generated source", async () => {
