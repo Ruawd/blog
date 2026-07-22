@@ -1,10 +1,14 @@
 export const siteConfig = {
-  name: "你的名字",
-  initials: "ME",
-  title: "个人主页",
-  description: "记录生活、兴趣与持续发生的小事。",
-  tagline: "认真生活，也认真记录。",
-  email: "hello@example.com",
+  name: "Ruawd",
+  initials: "R",
+  title: "独立博客",
+  description: "Ruawd 的个人博客，记录技术实践、VPS 测评与数字生活。",
+  tagline: "把踩过的坑、用过的服务和想留下的内容认真记录下来。",
+  email: "admin@ruawd.de",
+  url: "https://blog.ruawd.de",
+  avatar: "/blog-media/profile/avatar.avif",
+  github: "https://github.com/Ruawd",
+  bilibili: "https://space.bilibili.com/180370037",
 }
 
 export const navItems = [

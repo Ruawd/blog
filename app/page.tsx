@@ -37,7 +37,7 @@ export default function Home() {
 
           <div className="hero-content">
             <TextAnimate as="p" by="character" animation="blurInUp" duration={0.8} once className="eyebrow">
-              {"WELCOME TO MY LITTLE CORNER"}
+              {"WELCOME TO RUAWD BLOG"}
             </TextAnimate>
             <TextAnimate as="h1" by="word" animation="slideUp" duration={0.72} delay={0.08} once className="hero-title" id="hero-title">
               {siteConfig.name}
@@ -61,8 +61,8 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="hero-index" aria-hidden="true">HOME / 2026</div>
-          <div className="scroll-cue" aria-hidden="true"><span>BLOG · PHOTO · ANIME · LIFE</span></div>
+          <div className="hero-index" aria-hidden="true">SINCE / 2025</div>
+          <div className="scroll-cue" aria-hidden="true"><span>BLOG · VPS · SELF-HOSTED · LIFE</span></div>
         </section>
       </main>
       <SiteFooter />

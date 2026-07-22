@@ -1,21 +1,14 @@
-import assert from "node:assert/strict";
-import { access, readFile, readdir } from "node:fs/promises";
-import test from "node:test";
+import assert from "node:assert/strict"
+import { readFile } from "node:fs/promises"
+import test from "node:test"
 
-const developmentPreviewMeta =
-  /<meta(?=[^>]*\bname=["']codex-preview["'])(?=[^>]*\bcontent=["']development["'])[^>]*>/i;
-const templateRoot = new URL("../", import.meta.url);
-const previewRoot = new URL("../app/_sites-preview/", import.meta.url);
-
-async function render() {
-  const workerUrl = new URL("../dist/server/index.js", import.meta.url);
-  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}`);
-  const { default: worker } = await import(workerUrl.href);
+async function render(pathname) {
+  const workerUrl = new URL("../dist/server/index.js", import.meta.url)
+  workerUrl.searchParams.set("test", `${process.pid}-${Date.now()}-${pathname}`)
+  const { default: worker } = await import(workerUrl.href)
 
   return worker.fetch(
-    new Request("http://localhost/", {
-      headers: { accept: "text/html" },
-    }),
+    new Request(`http://localhost${pathname}`, { headers: { accept: "text/html" } }),
     {
       ASSETS: {
         fetch: async () => new Response("Not found", { status: 404 }),
@@ -25,67 +18,43 @@ async function render() {
       waitUntil() {},
       passThroughOnException() {},
     },
-  );
+  )
 }
 
-test("server-renders the starter loading skeleton", async () => {
-  const response = await render();
-  assert.equal(response.status, 200);
-  assert.match(response.headers.get("content-type") ?? "", /^text\/html\b/i);
+test("renders the migrated site identity and real blog index", async () => {
+  const [homeResponse, blogResponse] = await Promise.all([render("/"), render("/blog")])
+  assert.equal(homeResponse.status, 200)
+  assert.equal(blogResponse.status, 200)
 
-  const html = await response.text();
-  assert.match(html, developmentPreviewMeta);
-  assert.match(html, /<title>Your site is taking shape<\/title>/i);
-  assert.match(html, /Building your site/);
-  assert.match(html, /Your site is taking shape/);
-  assert.match(
-    html,
-    /Your first version will appear here automatically when it’s ready\./,
-  );
-  assert.doesNotMatch(html, /Codex/);
-  assert.match(html, /react-loading-skeleton/);
-  assert.match(html, /role="status"/);
-});
+  const [home, blog] = await Promise.all([homeResponse.text(), blogResponse.text()])
+  assert.match(home, /Ruawd/)
+  assert.match(blog, /AWS Lightsail JP \$5测试/)
+  assert.match(blog, /Stalwart Mail Server 安装与初步配置教程/)
+  assert.doesNotMatch(blog, /这里暂时放着一些文章样稿/)
+})
 
-test("keeps the loading skeleton scoped and disposable", async () => {
-  const [preview, css, page, layout, packageJson, files] = await Promise.all([
-    readFile(new URL("SkeletonPreview.tsx", previewRoot), "utf8"),
-    readFile(new URL("preview.css", previewRoot), "utf8"),
-    readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../package.json", import.meta.url), "utf8"),
-    readdir(previewRoot),
-  ]);
+test("renders a migrated article detail route", async () => {
+  const response = await render("/blog/memos-casdoor-oauth-login")
+  assert.equal(response.status, 200)
+  const html = await response.text()
+  assert.match(html, /在 Memos 中接入 Casdoor 登录并获取用户信息/)
+  assert.match(html, /Casdoor Application 配置/)
+})
 
-  assert.deepEqual(files.sort(), ["SkeletonPreview.tsx", "preview.css"]);
-  assert.match(preview, /from "react-loading-skeleton"/);
-  assert.match(preview, /baseColor="#eceae7"/);
-  assert.match(preview, /highlightColor="#f9f8f6"/);
-  assert.match(preview, /duration=\{2\.8\}/);
-  assert.match(preview, /sites-skeleton-search-placeholder/);
-  assert.match(packageJson, /"react-loading-skeleton": "3\.5\.0"/);
+test("keeps the protected article encrypted in generated source", async () => {
+  const generated = await readFile(
+    new URL("../lib/blog-posts.generated.ts", import.meta.url),
+    "utf8",
+  )
+  assert.match(generated, /"protected": true/)
+  assert.match(generated, /"algorithm": "AES-GCM"/)
+  assert.doesNotMatch(generated, /cjaww20040521/)
+})
 
-  const shellIndex = preview.indexOf('className="sites-skeleton-shell"');
-  const statusIndex = preview.indexOf('className="sites-skeleton-status"');
-  assert.ok(shellIndex >= 0 && statusIndex > shellIndex);
-  assert.match(css, /position:\s*fixed/);
-  assert.match(css, /inset:\s*0/);
-  assert.match(css, /opacity:\s*0\.52/);
-  assert.match(css, /prefers-reduced-motion:\s*reduce/);
-  assert.doesNotMatch(css, /#020617|canvas|pets|progress/i);
-  assert.doesNotMatch(
-    preview,
-    /loading-spinner|status-mark|status-progress|canvas|cookie|random/i,
-  );
-
-  assert.match(page, /export const metadata:\s*Metadata/);
-  assert.match(page, /"codex-preview": "development"/);
-  assert.match(page, /<SkeletonPreview \/>/);
-  assert.match(layout, /title:\s*"Starter Project"/);
-  assert.doesNotMatch(layout, /codex-preview|_sites-preview|themeColor|\bViewport\b/);
-  assert.doesNotMatch(css, /(^|\s)(html|body)\s*\{/m);
-
-  await assert.rejects(
-    access(new URL("public/_sites-preview", templateRoot)),
-  );
-});
+test("renders the protected article as a password prompt", async () => {
+  const response = await render("/blog/poste-io-mail-server-guide")
+  assert.equal(response.status, 200)
+  const html = await response.text()
+  assert.match(html, /这篇文章受密码保护/)
+  assert.doesNotMatch(html, /原文来自：https:\/\/blog\.lufei\.de/)
+})

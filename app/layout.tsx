@@ -15,17 +15,17 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: {
-    default: "你的名字 — 个人主页",
-    template: "%s | 你的名字",
+    default: "Ruawd Blog",
+    template: "%s | Ruawd Blog",
   },
-  description: "记录博客、相册、番组计划与生活碎片的个人主页。",
+  description: "Ruawd 的个人博客，记录技术实践、VPS 测评与数字生活。",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/favicon.ico",
+    shortcut: "/favicon.ico",
   },
   openGraph: {
-    title: "你的名字 — 个人主页",
-    description: "认真生活，也认真记录。",
+    title: "Ruawd Blog",
+    description: "记录技术实践、VPS 测评与数字生活。",
     type: "website",
     locale: "zh_CN",
   },

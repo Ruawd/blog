@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 675" role="img" aria-labelledby="title desc">
+  <title id="title">原文章配图暂不可用</title>
+  <desc id="desc">旧博客中的远程图片源已失效。</desc>
+  <rect width="1200" height="675" fill="#f1f2ec"/>
+  <path d="M0 1h1200M0 674h1200M1 0v675M1199 0v675" fill="none" stroke="#d7dacd" stroke-width="2"/>
+  <g fill="#62675d" font-family="system-ui, sans-serif" text-anchor="middle">
+    <text x="600" y="318" font-size="32" font-weight="600">原文章配图暂不可用</text>
+    <text x="600" y="370" font-size="20">旧博客中的远程图片源已失效</text>
+  </g>
+</svg>
