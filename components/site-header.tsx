@@ -1,5 +1,6 @@
 "use client"
 
+import Image from "next/image"
 import Link from "next/link"
 import { useEffect, useRef, useState } from "react"
 import { ChevronDown, Menu, X } from "lucide-react"
@@ -101,7 +102,15 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
     <header className="site-header">
       {showBrand ? (
         <Link className="brand" href="/" aria-label="返回主页">
-          <span className="brand-mark" aria-hidden="true">{siteConfig.initials}</span>
+          <Image
+            className="brand-avatar"
+            src={siteConfig.avatar}
+            alt=""
+            width={34}
+            height={34}
+            priority
+            unoptimized
+          />
           <span>{siteConfig.name}</span>
         </Link>
       ) : (

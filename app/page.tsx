@@ -78,9 +78,9 @@ const featureLinks = [
 
 export default function Home() {
   return (
-    <div className="site-shell home-shell" data-home-layout="two-x-inspired-v4">
+    <div className="site-shell home-shell" data-home-layout="two-x-inspired-v5">
       <a className="skip-link" href="#main">跳到主要内容</a>
-      <SiteHeader showBrand={false} />
+      <SiteHeader />
       <main id="main" className="home-main">
         <section className="home-profile" aria-labelledby="home-title">
           <HomeParticleBackground />

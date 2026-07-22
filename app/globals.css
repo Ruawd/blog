@@ -126,16 +126,14 @@ a {
   letter-spacing: 0.12em;
 }
 
-.brand-mark {
-  display: grid;
+.brand-avatar {
+  display: block;
   width: 34px;
   height: 34px;
-  place-items: center;
-  background: var(--foreground);
-  color: var(--background);
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 11px;
-  letter-spacing: -0.04em;
+  flex: 0 0 auto;
+  border: 1px solid rgba(17, 17, 17, 0.16);
+  border-radius: 10px;
+  object-fit: cover;
 }
 
 .desktop-nav {
@@ -2983,7 +2981,6 @@ a {
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 14px;
   border-radius: 22%;
   background: rgba(247, 247, 247, 0.92);
   color: #111;
@@ -3002,12 +2999,6 @@ a {
   border-top-color: #111;
   border-radius: 50%;
   animation: home-avatar-spin 720ms linear infinite;
-}
-
-.home-avatar-loader-label {
-  font-family: var(--font-geist-mono), monospace;
-  font-size: 9px;
-  letter-spacing: 0.18em;
 }
 
 .home-avatar-copy {

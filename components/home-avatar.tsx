@@ -35,7 +35,6 @@ export function HomeAvatar() {
         <div className="home-avatar-loader" role="status">
           <span className="sr-only">头像加载中</span>
           <span className="home-avatar-loader-ring" aria-hidden="true" />
-          <span className="home-avatar-loader-label" aria-hidden="true">LOADING</span>
         </div>
 
         <BorderBeam
