@@ -4291,6 +4291,7 @@ a {
 
 .admin-list-state svg,
 .admin-editor-state svg,
+.admin-protected-controls button[aria-busy="true"] svg,
 .admin-savebar button:disabled svg {
   animation: admin-spin 900ms linear infinite;
 }
@@ -4381,6 +4382,120 @@ a {
   width: 17px;
   height: 17px;
   flex: 0 0 auto;
+}
+
+.admin-form-notice.is-unlocked {
+  background: #fff;
+  color: var(--foreground);
+}
+
+.admin-protected-unlock {
+  display: grid;
+  gap: 16px;
+  margin-bottom: 24px;
+  padding: 20px;
+  border: 1px solid var(--foreground);
+  background: var(--surface-soft);
+}
+
+.admin-protected-heading {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.admin-protected-heading > svg {
+  width: 20px;
+  height: 20px;
+  flex: 0 0 auto;
+  margin-top: 2px;
+}
+
+.admin-protected-heading strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.admin-protected-heading p,
+.admin-protected-hint {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.admin-protected-controls {
+  display: grid;
+  gap: 8px;
+}
+
+.admin-protected-controls > label {
+  color: #4f4f4f;
+  font-size: 11px;
+  font-weight: 620;
+  letter-spacing: 0.04em;
+}
+
+.admin-protected-controls > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.admin-protected-controls input,
+.admin-protected-controls button {
+  min-height: 46px;
+  border: 1px solid var(--foreground);
+  border-radius: 0;
+  font: inherit;
+}
+
+.admin-protected-controls input {
+  min-width: 0;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.admin-protected-controls input:focus {
+  box-shadow: 0 0 0 3px rgba(17, 17, 17, 0.08);
+  outline: 0;
+}
+
+.admin-protected-controls button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--foreground);
+  color: var(--surface);
+  cursor: pointer;
+}
+
+.admin-protected-controls button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.admin-protected-controls button svg,
+.admin-preview-locked svg {
+  width: 17px;
+  height: 17px;
+}
+
+.admin-protected-controls > p {
+  margin: 0;
+  color: #9c1c1c;
+  font-size: 12px;
+}
+
+.admin-preview-locked {
+  display: flex;
+  min-height: 240px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
 }
 
 .admin-field,
@@ -5008,6 +5123,14 @@ a {
     min-height: 460px;
   }
 
+  .admin-protected-unlock {
+    padding: 16px;
+  }
+
+  .admin-protected-controls > div {
+    grid-template-columns: 1fr;
+  }
+
   .admin-savebar {
     display: grid;
     margin-inline: -16px;
@@ -5035,6 +5158,7 @@ a {
 @media (prefers-reduced-motion: reduce) {
   .admin-list-state svg,
   .admin-editor-state svg,
+  .admin-protected-controls button[aria-busy="true"] svg,
   .admin-savebar button:disabled svg,
   .admin-login-form > button svg:first-child,
   .admin-logout:disabled svg {

@@ -4,43 +4,12 @@ import { FormEvent, useState } from "react"
 import { KeyRound, LockKeyhole } from "lucide-react"
 
 import { ArticleMarkdown } from "@/components/article-markdown"
+import { decryptArticleContent } from "@/lib/article-crypto"
 import type { EncryptedBlogContent } from "@/lib/blog-posts.generated"
 
 type ProtectedArticleProps = {
   encrypted: EncryptedBlogContent
   passwordHint?: string
-}
-
-function decodeBase64(value: string) {
-  return Uint8Array.from(atob(value), (character) => character.charCodeAt(0))
-}
-
-async function decryptArticle(encrypted: EncryptedBlogContent, password: string) {
-  const keyMaterial = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(password),
-    "PBKDF2",
-    false,
-    ["deriveKey"],
-  )
-  const key = await crypto.subtle.deriveKey(
-    {
-      name: "PBKDF2",
-      hash: "SHA-256",
-      salt: decodeBase64(encrypted.salt),
-      iterations: encrypted.iterations,
-    },
-    keyMaterial,
-    { name: encrypted.algorithm, length: 256 },
-    false,
-    ["decrypt"],
-  )
-  const plainBuffer = await crypto.subtle.decrypt(
-    { name: encrypted.algorithm, iv: decodeBase64(encrypted.iv) },
-    key,
-    decodeBase64(encrypted.payload),
-  )
-  return new TextDecoder().decode(plainBuffer)
 }
 
 export function ProtectedArticle({ encrypted, passwordHint }: ProtectedArticleProps) {
@@ -56,7 +25,7 @@ export function ProtectedArticle({ encrypted, passwordHint }: ProtectedArticlePr
     setError("")
     setIsUnlocking(true)
     try {
-      setContent(await decryptArticle(encrypted, password))
+      setContent(await decryptArticleContent(encrypted, password))
       form.reset()
     } catch {
       setError("密码不正确，请重新输入。")

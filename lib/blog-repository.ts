@@ -2,7 +2,12 @@ import type { DatabaseSync } from "node:sqlite"
 
 import { getDatabase } from "@/db"
 import type { ArticleInput, ArticleStatus, ArticleSummary, EditableArticle } from "@/lib/blog-types"
-import { blogPosts, getBlogPost, type BlogPost } from "@/lib/blog-posts.generated"
+import {
+  blogPosts,
+  getBlogPost,
+  type BlogPost,
+  type EncryptedBlogContent,
+} from "@/lib/blog-posts.generated"
 
 type StoredPostRow = {
   slug: string
@@ -16,6 +21,9 @@ type StoredPostRow = {
   status: ArticleStatus
   publishedAt: string
   readingMinutes: number
+  protected: number
+  encryptedJson: string | null
+  passwordHint: string | null
   createdAt: string
   updatedAt: string
 }
@@ -35,6 +43,9 @@ const postSelect = `
     status,
     published_at AS publishedAt,
     reading_minutes AS readingMinutes,
+    protected,
+    encrypted_json AS encryptedJson,
+    password_hint AS passwordHint,
     created_at AS createdAt,
     updated_at AS updatedAt
   FROM posts
@@ -57,6 +68,9 @@ export function ensureBlogSchema(): DatabaseSync {
         status TEXT NOT NULL DEFAULT 'draft',
         published_at TEXT NOT NULL,
         reading_minutes INTEGER NOT NULL DEFAULT 1,
+        protected INTEGER NOT NULL DEFAULT 0,
+        encrypted_json TEXT,
+        password_hint TEXT,
         author_email TEXT NOT NULL,
         updated_by TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -65,6 +79,20 @@ export function ensureBlogSchema(): DatabaseSync {
       CREATE UNIQUE INDEX IF NOT EXISTS posts_slug_unique ON posts (slug);
       CREATE INDEX IF NOT EXISTS posts_status_published_idx ON posts (status, published_at);
     `)
+
+    const columns = new Set(
+      (db.prepare("PRAGMA table_info(posts)").all() as unknown as Array<{ name: string }>)
+        .map((column) => column.name),
+    )
+    if (!columns.has("protected")) {
+      db.exec("ALTER TABLE posts ADD COLUMN protected INTEGER NOT NULL DEFAULT 0")
+    }
+    if (!columns.has("encrypted_json")) {
+      db.exec("ALTER TABLE posts ADD COLUMN encrypted_json TEXT")
+    }
+    if (!columns.has("password_hint")) {
+      db.exec("ALTER TABLE posts ADD COLUMN password_hint TEXT")
+    }
     schemaReady = true
   }
   return db
@@ -79,12 +107,50 @@ function parseTags(value: string): string[] {
   }
 }
 
+function normalizeEncryptedContent(value: unknown): EncryptedBlogContent {
+  if (!value || typeof value !== "object") throw new Error("加密正文格式不正确")
+  const encrypted = value as Record<string, unknown>
+  const iterations = encrypted.iterations
+  const salt = encrypted.salt
+  const iv = encrypted.iv
+  const payload = encrypted.payload
+  const base64 = /^[A-Za-z0-9+/]+={0,2}$/
+
+  if (encrypted.algorithm !== "AES-GCM") throw new Error("只支持 AES-GCM 加密正文")
+  if (typeof iterations !== "number" || !Number.isInteger(iterations) || iterations < 100_000 || iterations > 1_000_000) {
+    throw new Error("加密迭代次数不正确")
+  }
+  if (typeof salt !== "string" || salt.length > 128 || !base64.test(salt)) throw new Error("加密盐值不正确")
+  if (typeof iv !== "string" || iv.length > 128 || !base64.test(iv)) throw new Error("加密向量不正确")
+  if (typeof payload !== "string" || payload.length > 2_400_000 || !base64.test(payload)) {
+    throw new Error("加密正文内容不正确")
+  }
+
+  return {
+    algorithm: "AES-GCM",
+    iterations,
+    salt,
+    iv,
+    payload,
+  }
+}
+
+function parseEncryptedContent(value: string | null): EncryptedBlogContent | undefined {
+  if (!value) return undefined
+  try {
+    return normalizeEncryptedContent(JSON.parse(value))
+  } catch {
+    return undefined
+  }
+}
+
 function storedToEditable(row: StoredPostRow): EditableArticle {
+  const protectedPost = row.protected === 1
   return {
     slug: row.slug,
     title: row.title,
     description: row.description,
-    content: row.content,
+    content: protectedPost ? "" : row.content,
     category: row.category,
     tags: parseTags(row.tagsJson),
     image: row.image ?? "",
@@ -95,7 +161,9 @@ function storedToEditable(row: StoredPostRow): EditableArticle {
     readingMinutes: row.readingMinutes,
     source: "database",
     editable: true,
-    protected: false,
+    protected: protectedPost,
+    passwordHint: row.passwordHint ?? "",
+    encrypted: protectedPost ? parseEncryptedContent(row.encryptedJson) : undefined,
   }
 }
 
@@ -104,7 +172,7 @@ function staticToEditable(post: BlogPost): EditableArticle {
     slug: post.slug,
     title: post.title,
     description: post.description,
-    content: post.content ?? "",
+    content: post.protected ? "" : post.content ?? "",
     category: post.category,
     tags: post.tags,
     image: post.image ?? "",
@@ -114,8 +182,10 @@ function staticToEditable(post: BlogPost): EditableArticle {
     updated: post.updated ?? post.published,
     readingMinutes: post.readingMinutes,
     source: "static",
-    editable: !post.protected,
+    editable: true,
     protected: post.protected,
+    passwordHint: post.passwordHint ?? "",
+    encrypted: post.encrypted,
   }
 }
 
@@ -131,8 +201,10 @@ function editableToBlogPost(post: EditableArticle): BlogPost {
     category: post.category,
     sourceLink: post.sourceLink || undefined,
     readingMinutes: post.readingMinutes,
-    protected: false,
-    content: post.content,
+    protected: post.protected,
+    passwordHint: post.passwordHint || undefined,
+    content: post.protected ? undefined : post.content,
+    encrypted: post.protected ? post.encrypted : undefined,
   }
 }
 
@@ -151,6 +223,7 @@ function editableToSummary(post: EditableArticle): ArticleSummary {
     source: post.source,
     editable: post.editable,
     protected: post.protected,
+    passwordHint: post.passwordHint,
   }
 }
 
@@ -220,6 +293,7 @@ export function normalizeArticleInput(value: unknown): ArticleInput {
   const title = string("title")
   const published = string("published")
   const status = input.status === "published" ? "published" : "draft"
+  const protectedPost = input.protected === true
   const tags = Array.isArray(input.tags)
     ? [...new Set(input.tags.filter((tag): tag is string => typeof tag === "string").map((tag) => tag.trim()).filter(Boolean))]
     : []
@@ -248,17 +322,29 @@ export function normalizeArticleInput(value: unknown): ArticleInput {
   if (tags.length > 20 || tags.some((tag) => tag.length > 50)) throw new Error("标签最多 20 个，每个不能超过 50 个字符")
   if ((typeof input.content === "string" ? input.content.length : 0) > 2_000_000) throw new Error("文章正文不能超过 200 万个字符")
 
+  const encrypted = protectedPost ? normalizeEncryptedContent(input.encrypted) : undefined
+  const readingMinutes = protectedPost ? Number(input.readingMinutes) : estimateReadingMinutes(
+    typeof input.content === "string" ? input.content : "",
+  )
+  if (!Number.isInteger(readingMinutes) || readingMinutes < 1 || readingMinutes > 10_000) {
+    throw new Error("文章阅读时长不正确")
+  }
+
   return {
     slug,
     title,
     description: string("description"),
-    content: typeof input.content === "string" ? input.content : "",
+    content: protectedPost ? "" : typeof input.content === "string" ? input.content : "",
     category: string("category") || "随笔",
     tags,
     image: validateOptionalUrl("image"),
     sourceLink: validateOptionalUrl("sourceLink"),
     status,
     published,
+    protected: protectedPost,
+    passwordHint: string("passwordHint").slice(0, 200),
+    readingMinutes,
+    encrypted,
   }
 }
 
@@ -270,13 +356,14 @@ export async function articleExists(slug: string): Promise<boolean> {
 export async function saveArticle(input: ArticleInput, email: string): Promise<EditableArticle> {
   const db = ensureBlogSchema()
   const now = new Date().toISOString()
-  const readingMinutes = estimateReadingMinutes(input.content)
+  const readingMinutes = input.protected ? input.readingMinutes : estimateReadingMinutes(input.content)
 
   db.prepare(`
     INSERT INTO posts (
       slug, title, description, content, category, tags_json, image, source_link,
-      status, published_at, reading_minutes, author_email, updated_by, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      status, published_at, reading_minutes, protected, encrypted_json, password_hint,
+      author_email, updated_by, created_at, updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON CONFLICT(slug) DO UPDATE SET
       title = excluded.title,
       description = excluded.description,
@@ -288,13 +375,16 @@ export async function saveArticle(input: ArticleInput, email: string): Promise<E
       status = excluded.status,
       published_at = excluded.published_at,
       reading_minutes = excluded.reading_minutes,
+      protected = excluded.protected,
+      encrypted_json = excluded.encrypted_json,
+      password_hint = excluded.password_hint,
       updated_by = excluded.updated_by,
       updated_at = excluded.updated_at
   `).run(
     input.slug,
     input.title,
     input.description,
-    input.content,
+    input.protected ? "" : input.content,
     input.category,
     JSON.stringify(input.tags),
     input.image || null,
@@ -302,6 +392,9 @@ export async function saveArticle(input: ArticleInput, email: string): Promise<E
     input.status,
     input.published,
     readingMinutes,
+    input.protected ? 1 : 0,
+    input.protected ? JSON.stringify(input.encrypted) : null,
+    input.protected ? input.passwordHint || null : null,
     email,
     email,
     now,

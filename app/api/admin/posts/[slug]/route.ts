@@ -35,13 +35,13 @@ export async function PUT(request: Request, { params }: RouteContext) {
     const { slug } = await params
     const current = await getEditableArticle(slug)
     if (!current) return Response.json({ error: "没有找到这篇文章" }, { status: 404 })
-    if (!current.editable) {
-      return Response.json({ error: "密码保护文章请保留在原内容源中编辑" }, { status: 409 })
-    }
 
     const input = normalizeArticleInput(await request.json())
     if (input.slug !== slug) {
       return Response.json({ error: "已有文章的链接标识不能直接修改" }, { status: 409 })
+    }
+    if (current.protected && !input.protected) {
+      return Response.json({ error: "密码保护文章不能直接取消保护" }, { status: 409 })
     }
 
     return Response.json({ post: await saveArticle(input, auth.user.username) })

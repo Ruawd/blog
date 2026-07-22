@@ -134,6 +134,49 @@ test("protects the management backend and supports draft-to-publish workflow", a
   assert.match(adminHtml, /页面内容/)
   assert.match(adminHtml, /留言与评论/)
 
+  const protectedEditorResponse = await request(
+    "/api/admin/posts/poste-io-mail-server-guide",
+    { headers: { cookie } },
+  )
+  assert.equal(protectedEditorResponse.status, 200)
+  const protectedArticle = (await protectedEditorResponse.json()).post
+  assert.equal(protectedArticle.protected, true)
+  assert.equal(protectedArticle.editable, true)
+  assert.equal(protectedArticle.content, "")
+  assert.equal(protectedArticle.encrypted.algorithm, "AES-GCM")
+
+  const protectedSaveResponse = await request(
+    "/api/admin/posts/poste-io-mail-server-guide",
+    {
+      method: "PUT",
+      headers: { cookie, origin: baseUrl, "content-type": "application/json" },
+      body: JSON.stringify({
+        slug: protectedArticle.slug,
+        title: protectedArticle.title,
+        description: protectedArticle.description,
+        content: "PROTECTED-PLAINTEXT-SHOULD-NOT-PERSIST",
+        category: protectedArticle.category,
+        tags: protectedArticle.tags,
+        image: protectedArticle.image,
+        sourceLink: protectedArticle.sourceLink,
+        status: "published",
+        published: protectedArticle.published,
+        protected: true,
+        passwordHint: protectedArticle.passwordHint,
+        readingMinutes: protectedArticle.readingMinutes,
+        encrypted: protectedArticle.encrypted,
+      }),
+    },
+  )
+  assert.equal(protectedSaveResponse.status, 200)
+  const protectedSaved = (await protectedSaveResponse.json()).post
+  assert.equal(protectedSaved.protected, true)
+  assert.equal(protectedSaved.content, "")
+  assert.equal(protectedSaved.encrypted.algorithm, "AES-GCM")
+  const protectedPage = await (await request("/blog/poste-io-mail-server-guide")).text()
+  assert.match(protectedPage, /这篇文章受密码保护/)
+  assert.doesNotMatch(protectedPage, /PROTECTED-PLAINTEXT-SHOULD-NOT-PERSIST/)
+
   const article = {
     slug: "integration-test-post",
     title: "后台发布流程测试",
@@ -258,6 +301,8 @@ test("keeps the editor responsive, stable, and free of emoji controls", async ()
   assert.match(editor, /保存草稿/)
   assert.match(editor, /发布文章/)
   assert.match(editor, /支持 Markdown/)
+  assert.match(editor, /解锁并编辑/)
+  assert.match(editor, /encryptArticleContent/)
   assert.match(consoleUi, /页面内容/)
   assert.match(consoleUi, /留言与评论/)
   assert.match(session, /httpOnly: true/)

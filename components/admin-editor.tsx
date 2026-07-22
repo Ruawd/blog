@@ -9,14 +9,17 @@ import {
   Eye,
   FilePenLine,
   FilePlus2,
+  KeyRound,
   LoaderCircle,
   LockKeyhole,
+  LockOpen,
   RefreshCw,
   Save,
 } from "lucide-react"
 
 import { ArticleMarkdown } from "@/components/article-markdown"
 import { ResilientImage } from "@/components/resilient-image"
+import { decryptArticleContent, encryptArticleContent } from "@/lib/article-crypto"
 import type { ArticleInput, ArticleStatus, ArticleSummary, EditableArticle } from "@/lib/blog-types"
 
 type AdminEditorProps = {
@@ -52,7 +55,14 @@ function createBlankArticle(): EditableArticle {
     source: "database",
     editable: true,
     protected: false,
+    passwordHint: "",
   }
+}
+
+function estimateReadingMinutes(content: string): number {
+  const chineseCharacters = (content.match(/[\u3400-\u9fff]/g) ?? []).length
+  const latinWords = (content.replace(/[\u3400-\u9fff]/g, " ").match(/[\p{L}\p{N}]+/gu) ?? []).length
+  return Math.max(1, Math.ceil(chineseCharacters / 400 + latinWords / 220))
 }
 
 function slugify(value: string): string {
@@ -99,6 +109,11 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
   const [slugTouched, setSlugTouched] = useState(false)
   const [message, setMessage] = useState("")
   const [error, setError] = useState("")
+  const [unlockPassword, setUnlockPassword] = useState("")
+  const [protectedPassword, setProtectedPassword] = useState("")
+  const [protectedUnlocked, setProtectedUnlocked] = useState(false)
+  const [unlocking, setUnlocking] = useState(false)
+  const canEdit = Boolean(draft?.editable && (!draft.protected || protectedUnlocked))
 
   useEffect(() => {
     let cancelled = false
@@ -117,10 +132,13 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
             await fetch(`/api/admin/posts/${encodeURIComponent(loadedPosts[0].slug)}`, { cache: "no-store" }),
           )
           if (cancelled) return
-          const cached = readCachedArticle(post.slug)
+          const cached = post.protected ? null : readCachedArticle(post.slug)
           setActiveSlug(post.slug)
           setDraft(cached ?? post)
           setDirty(Boolean(cached))
+          setProtectedUnlocked(false)
+          setProtectedPassword("")
+          setUnlockPassword("")
           setMessage(cached ? "已恢复这篇文章在本机未保存的内容" : "")
         } else {
           const cached = readCachedArticle(null)
@@ -139,7 +157,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
   }, [])
 
   useEffect(() => {
-    if (!draft || !dirty) return
+    if (!draft || !dirty || draft.protected) return
     const timer = window.setTimeout(() => {
       window.localStorage.setItem(
         cacheKey(activeSlug),
@@ -162,7 +180,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
     const saveWithShortcut = (event: KeyboardEvent) => {
       if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") return
       event.preventDefault()
-      if (draft && !saving && draft.editable) void saveArticle(draft.status)
+      if (draft && !saving && canEdit) void saveArticle(draft.status)
     }
     document.addEventListener("keydown", saveWithShortcut)
     return () => document.removeEventListener("keydown", saveWithShortcut)
@@ -182,6 +200,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
 
   async function openArticle(slug: string) {
     if (slug === activeSlug && draft) return
+    if (dirty && draft?.protected && !window.confirm("当前加密文章有未保存修改，确定要离开吗？")) return
     setLoadingArticle(true)
     setError("")
     setMessage("")
@@ -189,10 +208,13 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
       const { post } = await readJson<{ post: EditableArticle }>(
         await fetch(`/api/admin/posts/${encodeURIComponent(slug)}`, { cache: "no-store" }),
       )
-      const cached = readCachedArticle(slug)
+      const cached = post.protected ? null : readCachedArticle(slug)
       setActiveSlug(slug)
       setDraft(cached ?? post)
       setDirty(Boolean(cached))
+      setProtectedUnlocked(false)
+      setProtectedPassword("")
+      setUnlockPassword("")
       setSlugTouched(true)
       setMessage(cached ? "已恢复这篇文章在本机未保存的内容" : "")
       setPane("edit")
@@ -204,6 +226,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
   }
 
   function startNewArticle() {
+    if (dirty && draft?.protected && !window.confirm("当前加密文章有未保存修改，确定要新建文章吗？")) return
     const cached = readCachedArticle(null)
     setActiveSlug(null)
     setDraft(cached ?? createBlankArticle())
@@ -211,6 +234,9 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
     setSlugTouched(Boolean(cached?.slug))
     setError("")
     setMessage(cached ? "已恢复上次未保存的新文章" : "")
+    setProtectedUnlocked(false)
+    setProtectedPassword("")
+    setUnlockPassword("")
     setPane("edit")
   }
 
@@ -234,26 +260,52 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
     setMessage("")
   }
 
+  async function unlockProtectedArticle() {
+    if (!draft?.protected || !draft.encrypted || unlocking || !unlockPassword) return
+    setUnlocking(true)
+    setError("")
+    setMessage("")
+    try {
+      const content = await decryptArticleContent(draft.encrypted, unlockPassword)
+      setDraft((current) => current ? { ...current, content } : current)
+      setProtectedPassword(unlockPassword)
+      setProtectedUnlocked(true)
+      setUnlockPassword("")
+      setMessage("文章已在当前浏览器中解锁，可以编辑和预览")
+    } catch {
+      setError("文章密码不正确，请重新输入")
+    } finally {
+      setUnlocking(false)
+    }
+  }
+
   async function saveArticle(status: ArticleStatus) {
-    if (!draft || saving || !draft.editable) return
+    if (!draft || saving || !canEdit) return
     setSaving(true)
     setError("")
     setMessage("")
 
-    const payload: ArticleInput = {
-      slug: draft.slug,
-      title: draft.title,
-      description: draft.description,
-      content: draft.content,
-      category: draft.category,
-      tags: draft.tags,
-      image: draft.image,
-      sourceLink: draft.sourceLink,
-      status,
-      published: draft.published,
-    }
-
     try {
+      if (draft.protected && !protectedPassword) throw new Error("请先使用文章密码解锁正文")
+      const encrypted = draft.protected
+        ? await encryptArticleContent(draft.content, protectedPassword)
+        : undefined
+      const payload: ArticleInput = {
+        slug: draft.slug,
+        title: draft.title,
+        description: draft.description,
+        content: draft.protected ? "" : draft.content,
+        category: draft.category,
+        tags: draft.tags,
+        image: draft.image,
+        sourceLink: draft.sourceLink,
+        status,
+        published: draft.published,
+        protected: draft.protected,
+        passwordHint: draft.passwordHint,
+        readingMinutes: estimateReadingMinutes(draft.content),
+        encrypted,
+      }
       const endpoint = activeSlug
         ? `/api/admin/posts/${encodeURIComponent(activeSlug)}`
         : "/api/admin/posts"
@@ -263,13 +315,19 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
         body: JSON.stringify(payload),
       })
       const { post } = await readJson<{ post: EditableArticle }>(response)
-      window.localStorage.removeItem(cacheKey(activeSlug))
-      if (!activeSlug) window.localStorage.removeItem(cacheKey(null))
-      setDraft(post)
+      if (!draft.protected) {
+        window.localStorage.removeItem(cacheKey(activeSlug))
+        if (!activeSlug) window.localStorage.removeItem(cacheKey(null))
+      }
+      setDraft(post.protected ? { ...post, content: draft.content, encrypted } : post)
       setActiveSlug(post.slug)
       setDirty(false)
       setSlugTouched(true)
-      setMessage(status === "published" ? "文章已发布，前台现在可以看到" : "草稿已保存")
+      setMessage(
+        post.protected
+          ? status === "published" ? "加密正文已重新加密并发布" : "加密草稿已安全保存"
+          : status === "published" ? "文章已发布，前台现在可以看到" : "草稿已保存",
+      )
       await refreshList()
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "文章保存失败")
@@ -347,10 +405,51 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                 ) : null}
               </div>
 
-              {!draft.editable ? (
-                <div className="admin-form-notice" role="status">
-                  <LockKeyhole aria-hidden="true" />
-                  这是一篇密码保护文章。为避免破坏加密正文，请继续在原内容源中编辑。
+              {draft.protected && !protectedUnlocked ? (
+                <section className="admin-protected-unlock" aria-labelledby="admin-protected-title">
+                  <div className="admin-protected-heading">
+                    <LockKeyhole aria-hidden="true" />
+                    <div>
+                      <strong id="admin-protected-title">解锁后编辑加密文章</strong>
+                      <p>正文只在当前浏览器中解密；保存时会使用同一密码重新加密。</p>
+                    </div>
+                  </div>
+                  {draft.passwordHint ? <p className="admin-protected-hint">提示：{draft.passwordHint}</p> : null}
+                  <div className="admin-protected-controls">
+                    <label htmlFor="admin-article-password">文章密码</label>
+                    <div>
+                      <input
+                        id="admin-article-password"
+                        type="password"
+                        value={unlockPassword}
+                        onChange={(event) => { setUnlockPassword(event.target.value); setError("") }}
+                        onKeyDown={(event) => {
+                          if (event.key !== "Enter") return
+                          event.preventDefault()
+                          void unlockProtectedArticle()
+                        }}
+                        autoComplete="current-password"
+                        aria-describedby={error ? "admin-protected-error" : undefined}
+                        disabled={unlocking || !draft.encrypted}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => void unlockProtectedArticle()}
+                        disabled={unlocking || !unlockPassword || !draft.encrypted}
+                        aria-busy={unlocking}
+                      >
+                        {unlocking ? <LoaderCircle aria-hidden="true" /> : <KeyRound aria-hidden="true" />}
+                        {unlocking ? "正在解锁" : "解锁并编辑"}
+                      </button>
+                    </div>
+                    {!draft.encrypted ? <p role="alert">没有读取到加密正文，请刷新页面后重试。</p> : null}
+                    {error ? <p id="admin-protected-error" role="alert">{error}</p> : null}
+                  </div>
+                </section>
+              ) : draft.protected ? (
+                <div className="admin-form-notice is-unlocked" role="status">
+                  <LockOpen aria-hidden="true" />
+                  已在当前浏览器中解锁。保存时正文会重新加密，密码不会写入数据库。
                 </div>
               ) : null}
 
@@ -361,7 +460,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                   value={draft.title}
                   onChange={(event) => updateTitle(event.target.value)}
                   placeholder="这篇文章想讲什么？"
-                  disabled={!draft.editable}
+                  disabled={!canEdit}
                   required
                 />
               </div>
@@ -374,7 +473,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                     value={draft.slug}
                     onChange={(event) => { setSlugTouched(true); updateDraft("slug", slugify(event.target.value)) }}
                     placeholder="my-new-post"
-                    disabled={Boolean(activeSlug) || !draft.editable}
+                    disabled={Boolean(activeSlug) || !canEdit}
                     required
                   />
                   <small>发布地址：/blog/{draft.slug || "my-new-post"}</small>
@@ -386,7 +485,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                     type="date"
                     value={draft.published}
                     onChange={(event) => updateDraft("published", event.target.value)}
-                    disabled={!draft.editable}
+                    disabled={!canEdit}
                     required
                   />
                 </div>
@@ -400,7 +499,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                     value={draft.category}
                     onChange={(event) => updateDraft("category", event.target.value)}
                     placeholder="技术踩坑"
-                    disabled={!draft.editable}
+                    disabled={!canEdit}
                   />
                 </div>
                 <div className="admin-field">
@@ -410,7 +509,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                     value={draft.tags.join(", ")}
                     onChange={(event) => updateDraft("tags", event.target.value.split(/[，,]/).map((tag) => tag.trim()).filter(Boolean))}
                     placeholder="Next.js, VPS, 教程"
-                    disabled={!draft.editable}
+                    disabled={!canEdit}
                   />
                 </div>
               </div>
@@ -423,7 +522,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                   onChange={(event) => updateDraft("description", event.target.value)}
                   placeholder="用两三句话说明文章内容。"
                   rows={3}
-                  disabled={!draft.editable}
+                  disabled={!canEdit}
                 />
               </div>
 
@@ -437,7 +536,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                     value={draft.image}
                     onChange={(event) => updateDraft("image", event.target.value)}
                     placeholder="https://example.com/cover.webp"
-                    disabled={!draft.editable}
+                    disabled={!canEdit}
                   />
                 </div>
                 <div className="admin-field">
@@ -448,7 +547,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                     value={draft.sourceLink}
                     onChange={(event) => updateDraft("sourceLink", event.target.value)}
                     placeholder="https://example.com/report"
-                    disabled={!draft.editable}
+                    disabled={!canEdit}
                   />
                 </div>
               </details>
@@ -464,7 +563,7 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                   onChange={(event) => updateDraft("content", event.target.value)}
                   placeholder={"## 从这里开始\n\n写下正文，右侧会同步预览。"}
                   spellCheck="false"
-                  disabled={!draft.editable}
+                  disabled={!canEdit}
                 />
               </div>
 
@@ -475,11 +574,11 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
                   {!error && !message && dirty ? <span>未保存内容已临时保存在本机</span> : null}
                 </div>
                 <div>
-                  <button type="button" className="admin-secondary-button" onClick={() => void saveArticle("draft")} disabled={saving || !draft.editable}>
+                  <button type="button" className="admin-secondary-button" onClick={() => void saveArticle("draft")} disabled={saving || !canEdit}>
                     {saving ? <LoaderCircle aria-hidden="true" /> : <Save aria-hidden="true" />}
                     保存草稿
                   </button>
-                  <button type="button" className="admin-primary-button" onClick={() => void saveArticle("published")} disabled={saving || !draft.editable}>
+                  <button type="button" className="admin-primary-button" onClick={() => void saveArticle("published")} disabled={saving || !canEdit}>
                     {saving ? <LoaderCircle aria-hidden="true" /> : <Check aria-hidden="true" />}
                     发布文章
                   </button>
@@ -500,7 +599,12 @@ export function AdminEditor({ displayName }: AdminEditorProps) {
             </button>
           </header>
           <div className="admin-preview-canvas">
-            {draft ? (
+            {draft?.protected && !protectedUnlocked ? (
+              <div className="admin-preview-empty admin-preview-locked">
+                <LockKeyhole aria-hidden="true" />
+                解锁文章后，这里会显示正文预览。
+              </div>
+            ) : draft ? (
               <article>
                 <p className="section-kicker">{draft.category || "未分类"} / PREVIEW</p>
                 <h1>{draft.title || "未命名文章"}</h1>

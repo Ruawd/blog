@@ -1,3 +1,5 @@
+import type { EncryptedBlogContent } from "@/lib/blog-posts.generated"
+
 export type ArticleStatus = "draft" | "published"
 
 export type ArticleSource = "database" | "static"
@@ -18,9 +20,11 @@ export type EditableArticle = {
   source: ArticleSource
   editable: boolean
   protected: boolean
+  passwordHint: string
+  encrypted?: EncryptedBlogContent
 }
 
-export type ArticleSummary = Omit<EditableArticle, "content" | "sourceLink">
+export type ArticleSummary = Omit<EditableArticle, "content" | "sourceLink" | "encrypted">
 
 export type ArticleInput = Pick<
   EditableArticle,
@@ -34,4 +38,9 @@ export type ArticleInput = Pick<
   | "sourceLink"
   | "status"
   | "published"
->
+  | "protected"
+  | "passwordHint"
+  | "readingMinutes"
+> & {
+  encrypted?: EncryptedBlogContent
+}
