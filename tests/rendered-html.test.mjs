@@ -133,6 +133,8 @@ test("renders an article detail route with reading tools", async () => {
   assert.match(html, /class="article-progress"/)
   assert.match(html, /aria-label="返回顶部"/)
   assert.match(html, /复制文章链接/)
+  assert.match(html, /class="article-code-scroll"/)
+  assert.match(html, /代码内容，可横向滚动/)
   assert.match(html, /data-expanded="false"/)
   assert.match(html, /aria-label="展开文章快捷操作"/)
   assert.match(html, /id="article-action-items" aria-hidden="true"/)
@@ -305,14 +307,14 @@ test("supports guestbook messages and article-isolated comments", async () => {
   const guestbookResponse = await request("/api/comments", {
     method: "POST",
     headers,
-    body: JSON.stringify({ scope: "guestbook", target: "guestbook", nickname: "访客甲", email: "guest@example.com", website: "", content: "这是一条留言簿测试内容。", company: "" }),
+    body: JSON.stringify({ scope: "guestbook", target: "guestbook", nickname: "访客甲", email: "guest@example.com", website: "", avatarUrl: "", content: "这是一条留言簿测试内容。", company: "" }),
   })
   assert.equal(guestbookResponse.status, 201)
 
   const articleResponse = await request("/api/comments", {
     method: "POST",
     headers,
-    body: JSON.stringify({ scope: "article", target: "memos-casdoor-oauth-login", nickname: "读者乙", email: "", website: "https://example.com", content: "这是一条文章独立评论。", company: "" }),
+    body: JSON.stringify({ scope: "article", target: "memos-casdoor-oauth-login", nickname: "读者乙", email: "", website: "https://example.com", avatarUrl: "https://example.com/avatar.png", content: "这是一条文章独立评论。", company: "" }),
   })
   assert.equal(articleResponse.status, 201)
 
@@ -323,6 +325,8 @@ test("supports guestbook messages and article-isolated comments", async () => {
   assert.equal(article.comments.length, 1)
   assert.equal(anotherArticle.comments.length, 0)
   assert.equal(guestbook.comments[0].email, undefined)
+  assert.match(guestbook.comments[0].avatarUrl, /^\/api\/avatars\/comments\/\d+$/)
+  assert.equal(article.comments[0].avatarUrl, "https://example.com/avatar.png")
   assert.match(article.comments[0].content, /文章独立评论/)
 
   const cookie = adminCookie()
@@ -342,15 +346,18 @@ test("supports guestbook messages and article-isolated comments", async () => {
 
   const articleHtml = await (await request("/blog/memos-casdoor-oauth-login")).text()
   assert.match(articleHtml, /文章评论/)
-  assert.match(articleHtml, /邮箱（不公开）/)
+  assert.match(articleHtml, /邮箱（不公开/)
+  assert.match(articleHtml, /头像链接/)
+  assert.match(articleHtml, /Gravatar/)
 })
 
 test("keeps the editor responsive, stable, and free of emoji controls", async () => {
-  const [styles, editor, consoleUi, session] = await Promise.all([
+  const [styles, editor, consoleUi, session, codeBlock] = await Promise.all([
     readFile(join(projectRoot, "app", "globals.css"), "utf8"),
     readFile(join(projectRoot, "components", "admin-editor.tsx"), "utf8"),
     readFile(join(projectRoot, "components", "admin-console.tsx"), "utf8"),
     readFile(join(projectRoot, "lib", "admin-session.ts"), "utf8"),
+    readFile(join(projectRoot, "components", "article-code-block.tsx"), "utf8"),
   ])
 
   assert.match(styles, /\.admin-workspace/)
@@ -370,6 +377,10 @@ test("keeps the editor responsive, stable, and free of emoji controls", async ()
   assert.match(consoleUi, /留言与评论/)
   assert.match(session, /httpOnly: true/)
   assert.match(session, /sameSite: "lax"/)
+  assert.match(styles, /\.article-code-scroll/)
+  assert.match(styles, /scrollbar-width: thin/)
+  assert.match(codeBlock, /aria-label="代码内容，可横向滚动"/)
+  assert.match(codeBlock, /左右滑动查看完整代码/)
 })
 
 test("keeps the protected article encrypted in generated source", async () => {

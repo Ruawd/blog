@@ -1,0 +1,1 @@
+ALTER TABLE `comments` ADD `avatar_url` text;

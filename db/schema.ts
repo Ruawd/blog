@@ -60,6 +60,7 @@ export const comments = sqliteTable(
     nickname: text("nickname").notNull(),
     email: text("email"),
     website: text("website"),
+    avatarUrl: text("avatar_url"),
     content: text("content").notNull(),
     status: text("status", { enum: ["approved", "hidden"] }).notNull().default("approved"),
     ipHash: text("ip_hash").notNull().default(""),

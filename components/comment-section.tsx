@@ -14,8 +14,8 @@ type CommentSectionProps = {
   title?: string
 }
 
-type FormData = { nickname: string; email: string; website: string; content: string; company: string }
-const emptyForm: FormData = { nickname: "", email: "", website: "", content: "", company: "" }
+type FormData = { nickname: string; email: string; website: string; avatarUrl: string; content: string; company: string }
+const emptyForm: FormData = { nickname: "", email: "", website: "", avatarUrl: "", content: "", company: "" }
 
 async function readJson<T>(response: Response): Promise<T> {
   const body = await response.json() as T & { error?: string }
@@ -26,6 +26,27 @@ async function readJson<T>(response: Response): Promise<T> {
 const formatter = new Intl.DateTimeFormat("zh-CN", {
   year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
 })
+
+function CommentAvatar({ nickname, src }: { nickname: string; src: string }) {
+  const [failed, setFailed] = useState(false)
+  if (!src || failed) {
+    return <span className="comment-initial" aria-hidden="true">{nickname.slice(0, 1).toUpperCase()}</span>
+  }
+
+  return (
+    <span className="comment-avatar">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        loading="lazy"
+        decoding="async"
+        referrerPolicy="no-referrer"
+        onError={() => setFailed(true)}
+      />
+    </span>
+  )
+}
 
 export function CommentSection({ scope, target, title = scope === "guestbook" ? "留言簿" : "评论" }: CommentSectionProps) {
   const [comments, setComments] = useState<PublicComment[]>([])
@@ -42,7 +63,13 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
     try {
       const saved = JSON.parse(window.localStorage.getItem("ruawd-comment-profile") || "{}") as Partial<FormData>
       timer = window.setTimeout(() => {
-        setForm((current) => ({ ...current, nickname: saved.nickname || "", email: saved.email || "", website: saved.website || "" }))
+        setForm((current) => ({
+          ...current,
+          nickname: saved.nickname || "",
+          email: saved.email || "",
+          website: saved.website || "",
+          avatarUrl: saved.avatarUrl || "",
+        }))
       }, 0)
     } catch {}
     return () => window.clearTimeout(timer)
@@ -86,7 +113,12 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
       setComments((current) => [comment, ...current])
       setSuccess(scope === "guestbook" ? "留言已发布" : "评论已发布")
       setForm((current) => ({ ...current, content: "", company: "" }))
-      window.localStorage.setItem("ruawd-comment-profile", JSON.stringify({ nickname: form.nickname, email: form.email, website: form.website }))
+      window.localStorage.setItem("ruawd-comment-profile", JSON.stringify({
+        nickname: form.nickname,
+        email: form.email,
+        website: form.website,
+        avatarUrl: form.avatarUrl,
+      }))
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : "提交失败")
     } finally {
@@ -108,14 +140,19 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
         <BorderBeam size={110} duration={10} colorFrom="#111111" colorTo="#b7b7b7" borderWidth={1} />
         <div className="comment-form-grid">
           <label><span>昵称 *</span><input value={form.nickname} onChange={(event) => update("nickname", event.target.value)} maxLength={40} autoComplete="nickname" required /></label>
-          <label><span>邮箱（不公开）</span><input type="email" value={form.email} onChange={(event) => update("email", event.target.value)} maxLength={120} autoComplete="email" /></label>
+          <label><span>邮箱（不公开，可匹配 Gravatar）</span><input type="email" value={form.email} onChange={(event) => update("email", event.target.value)} maxLength={120} autoComplete="email" /></label>
           <label><span>个人网站</span><input type="url" value={form.website} onChange={(event) => update("website", event.target.value)} placeholder="https://" autoComplete="url" /></label>
+          <label>
+            <span>头像链接</span>
+            <input type="url" value={form.avatarUrl} onChange={(event) => update("avatarUrl", event.target.value)} placeholder="https://example.com/avatar.jpg" maxLength={1000} inputMode="url" />
+            <small>仅支持 HTTPS；留空时会尝试使用邮箱对应的 Gravatar。</small>
+          </label>
         </div>
         <label className="comment-form-content"><span>内容 *</span><textarea value={form.content} onChange={(event) => update("content", event.target.value)} minLength={2} maxLength={2000} rows={6} required /></label>
         <label className="comment-honeypot" aria-hidden="true">公司<input value={form.company} onChange={(event) => update("company", event.target.value)} tabIndex={-1} autoComplete="off" /></label>
         <footer>
           <p className={error ? "is-error" : success ? "is-success" : ""} role="status">
-            {error || success || "请保持友善；邮箱仅用于辨识，不会公开。"}
+            {error || success || "头像链接优先；邮箱仅用于 Gravatar 匹配与辨识，不会公开。"}
           </p>
           <ShimmerButton type="submit" disabled={submitting}>
             {submitting ? <LoaderCircle className="spin" aria-hidden="true" /> : success ? <Check aria-hidden="true" /> : <Send aria-hidden="true" />}
@@ -131,7 +168,7 @@ export function CommentSection({ scope, target, title = scope === "guestbook" ? 
           {comments.map((comment) => (
             <AnimatedListItem className="comment-item" key={comment.id}>
               <header>
-                <span className="comment-initial" aria-hidden="true">{comment.nickname.slice(0, 1).toUpperCase()}</span>
+                <CommentAvatar nickname={comment.nickname} src={comment.avatarUrl} />
                 <div>
                   {comment.website ? <a href={comment.website} target="_blank" rel="nofollow noreferrer">{comment.nickname}<ExternalLink aria-hidden="true" /></a> : <strong>{comment.nickname}</strong>}
                   <time dateTime={comment.createdAt}>{formatter.format(new Date(comment.createdAt))}</time>
