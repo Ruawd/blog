@@ -1,10 +1,8 @@
 import type { Metadata } from "next"
-import Link from "next/link"
-import { ArrowRight, LockKeyhole } from "lucide-react"
 
+import { BlogExplorer, type BlogExplorerPost } from "@/components/blog-explorer"
 import { SiteFrame } from "@/components/site-frame"
 import { ManagedPageBody } from "@/components/managed-page-body"
-import { ResilientImage } from "@/components/resilient-image"
 import { listPublishedBlogPosts } from "@/lib/blog-repository"
 import { getPageContent } from "@/lib/page-content"
 
@@ -15,14 +13,19 @@ export const metadata: Metadata = {
   description: "Ruawd 的技术教程、VPS 测评与自建服务记录。",
 }
 
-const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
-  year: "numeric",
-  month: "2-digit",
-  day: "2-digit",
-})
-
 export default async function BlogPage() {
   const [blogPosts, page] = await Promise.all([listPublishedBlogPosts(), getPageContent("blog")])
+  const publicPosts: BlogExplorerPost[] = blogPosts.map((post) => ({
+    slug: post.slug,
+    title: post.title,
+    published: post.published,
+    description: post.description,
+    image: post.image,
+    tags: post.tags,
+    category: post.category,
+    readingMinutes: post.readingMinutes,
+    protected: post.protected,
+  }))
 
   return (
     <SiteFrame
@@ -40,58 +43,7 @@ export default async function BlogPage() {
           <p>共 {blogPosts.length} 篇文章，按发布时间从新到旧排列。</p>
         </div>
 
-        <div className="post-list">
-          {blogPosts.map((post, index) => (
-            <article className="post-card" key={post.slug}>
-              <header className="post-meta">
-                <span aria-hidden="true">{String(index + 1).padStart(2, "0")}</span>
-                <time dateTime={post.published}>
-                  {dateFormatter.format(new Date(`${post.published}T00:00:00+08:00`))}
-                </time>
-                <span>{post.category}</span>
-              </header>
-
-              <div className="post-copy">
-                <h3>
-                  <Link href={`/blog/${post.slug}`}>{post.title}</Link>
-                </h3>
-                <p>{post.description}</p>
-              </div>
-
-              {post.image ? (
-                <Link
-                  className="post-cover-link"
-                  href={`/blog/${post.slug}`}
-                  aria-label={`阅读《${post.title}》`}
-                  tabIndex={-1}
-                >
-                  <ResilientImage
-                    className="post-cover"
-                    src={post.image}
-                    alt=""
-                    width={800}
-                    height={600}
-                    loading={index < 3 ? "eager" : "lazy"}
-                    referrerPolicy="strict-origin-when-cross-origin"
-                  />
-                </Link>
-              ) : null}
-
-              <footer className="post-footer">
-                <ul className="post-tags" aria-label="文章标签">
-                  {post.tags.map((tag) => (
-                    <li key={tag}>#{tag}</li>
-                  ))}
-                </ul>
-                <Link className="post-read-link" href={`/blog/${post.slug}`}>
-                  {post.protected ? <LockKeyhole aria-hidden="true" /> : null}
-                  <span>{post.protected ? "密码保护" : `约 ${post.readingMinutes} 分钟`}</span>
-                  <ArrowRight aria-hidden="true" />
-                </Link>
-              </footer>
-            </article>
-          ))}
-        </div>
+        <BlogExplorer posts={publicPosts} />
       </section>
     </SiteFrame>
   )

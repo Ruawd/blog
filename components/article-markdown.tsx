@@ -2,6 +2,7 @@ import { isValidElement, type ReactNode } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
+import { ArticleCodeBlock } from "@/components/article-code-block"
 import { ResilientImage } from "@/components/resilient-image"
 import { createUniqueHeadingId } from "@/lib/article-headings"
 
@@ -48,6 +49,20 @@ export function ArticleMarkdown({ content }: ArticleMarkdownProps) {
                 {children}
               </a>
             )
+          },
+          pre: ({ children }) => {
+            const child = Array.isArray(children) ? children[0] : children
+            if (!isValidElement<{ className?: string; children?: ReactNode }>(child)) {
+              return <pre>{children}</pre>
+            }
+
+            const language = child.props.className?.match(/language-([^\s]+)/)?.[1] || "text"
+            const code = getHeadingText(child.props.children).replace(/\n$/, "")
+            return <ArticleCodeBlock code={code} language={language} />
+          },
+          code: ({ children, node, ...props }) => {
+            void node
+            return <code {...props}>{children}</code>
           },
           img: ({ alt, src }) => typeof src === "string" && src ? (
             <ResilientImage

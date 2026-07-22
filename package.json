@@ -23,6 +23,8 @@
     "lucide-react": "^1.25.0",
     "motion": "^12.42.2",
     "next": "16.2.6",
+    "pinyin-pro": "^3.28.2",
+    "prism-react-renderer": "^2.4.1",
     "react": "19.2.6",
     "react-dom": "19.2.6",
     "react-markdown": "^10.1.0",
