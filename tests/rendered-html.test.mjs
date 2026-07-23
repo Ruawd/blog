@@ -83,19 +83,22 @@ function adminCookie() {
 }
 
 test("renders the site identity and real blog index", async () => {
-  const [homeResponse, blogResponse, categoriesResponse] = await Promise.all([
+  const [homeResponse, blogResponse, categoriesResponse, linksResponse] = await Promise.all([
     request("/"),
     request("/blog"),
     request("/blog/categories"),
+    request("/links"),
   ])
   assert.equal(homeResponse.status, 200)
   assert.equal(blogResponse.status, 200)
   assert.equal(categoriesResponse.status, 200)
+  assert.equal(linksResponse.status, 200)
 
-  const [home, blog, categories] = await Promise.all([
+  const [home, blog, categories, links] = await Promise.all([
     homeResponse.text(),
     blogResponse.text(),
     categoriesResponse.text(),
+    linksResponse.text(),
   ])
   assert.match(home, /Ruawd/)
   assert.match(home, /\/blog-media\/profile\/avatar\.webp/)
@@ -129,6 +132,10 @@ test("renders the site identity and real blog index", async () => {
   assert.match(categories, /文章分类/)
   assert.match(categories, /全部分类/)
   assert.match(categories, /href="\/blog\?category=VPS%E6%B5%8B%E8%AF%84#latest-posts-title"/)
+  assert.match(links, /SLS 图床/)
+  assert.match(links, /href="https:\/\/sls\.ruawd\.de"/)
+  assert.match(links, /Meow Auth/)
+  assert.match(links, /href="https:\/\/casdoor\.ruawd\.de"/)
 })
 
 test("serves search, feeds, manifests, and crawler metadata", async () => {

@@ -93,6 +93,18 @@ export const personalLinks = [
     description: "视频、动态与兴趣内容。",
   },
   {
+    name: "SLS 图床",
+    href: "https://sls.ruawd.de",
+    domain: "sls.ruawd.de",
+    description: "图片上传、管理与外链服务。",
+  },
+  {
+    name: "Meow Auth",
+    href: "https://casdoor.ruawd.de",
+    domain: "casdoor.ruawd.de",
+    description: "统一认证与单点登录中心。",
+  },
+  {
     name: "Email",
     href: "mailto:admin@ruawd.de",
     domain: "admin@ruawd.de",
