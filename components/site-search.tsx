@@ -2,8 +2,10 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, useSyncExternalStore } from "react"
+import { createPortal } from "react-dom"
 import { ArrowRight, FileText, LoaderCircle, Search, X } from "lucide-react"
+import { AnimatePresence, motion, useReducedMotion } from "motion/react"
 
 type SearchResult = {
   type: "article" | "page"
@@ -13,8 +15,12 @@ type SearchResult = {
   href: string
 }
 
+const subscribeToClient = () => () => undefined
+
 export function SiteSearch() {
   const router = useRouter()
+  const shouldReduceMotion = useReducedMotion()
+  const mounted = useSyncExternalStore(subscribeToClient, () => true, () => false)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
   const [open, setOpen] = useState(false)
@@ -25,7 +31,12 @@ export function SiteSearch() {
 
   function close(restoreFocus = true) {
     setOpen(false)
-    if (restoreFocus) window.requestAnimationFrame(() => triggerRef.current?.focus())
+    if (restoreFocus) {
+      window.setTimeout(
+        () => triggerRef.current?.focus(),
+        shouldReduceMotion ? 0 : 180,
+      )
+    }
   }
 
   useEffect(() => {
@@ -129,66 +140,105 @@ export function SiteSearch() {
         <kbd>⌘K</kbd>
       </button>
 
-      {open ? (
-        <div className="site-search-layer" role="presentation">
-          <button className="site-search-backdrop" type="button" aria-label="关闭搜索" onClick={() => close()} />
-          <div
-            className="site-search-dialog"
-            role="dialog"
-            aria-modal="true"
-            aria-label="全站搜索"
-            onKeyDown={handleDialogKeyDown}
-          >
-            <header className="site-search-box">
-              {loading ? <LoaderCircle className="spin" aria-hidden="true" /> : <Search aria-hidden="true" />}
-              <label className="sr-only" htmlFor="site-search-input">搜索文章和页面</label>
-              <input
-                ref={inputRef}
-                id="site-search-input"
-                type="search"
-                value={query}
-                placeholder="搜索文章、相册、页面或拼音…"
-                autoComplete="off"
-                onChange={(event) => setQuery(event.target.value)}
+      {mounted ? createPortal(
+        <AnimatePresence initial={false}>
+          {open ? (
+            <div className="site-search-layer" role="presentation">
+              <motion.button
+                className="site-search-backdrop"
+                type="button"
+                aria-label="关闭搜索"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{
+                  duration: shouldReduceMotion ? 0 : 0.22,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                onClick={() => close()}
               />
-              <button type="button" aria-label="关闭搜索" onClick={() => close()}><X aria-hidden="true" /></button>
-            </header>
+              <motion.div
+                className="site-search-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-label="全站搜索"
+                initial={shouldReduceMotion ? false : {
+                  opacity: 0,
+                  y: -18,
+                  scale: 0.975,
+                  filter: "blur(12px)",
+                }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  scale: 1,
+                  filter: "blur(0px)",
+                }}
+                exit={shouldReduceMotion ? { opacity: 0 } : {
+                  opacity: 0,
+                  y: -8,
+                  scale: 0.985,
+                  filter: "blur(8px)",
+                }}
+                transition={{
+                  duration: shouldReduceMotion ? 0 : 0.34,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                onKeyDown={handleDialogKeyDown}
+              >
+                <header className="site-search-box">
+                  {loading ? <LoaderCircle className="spin" aria-hidden="true" /> : <Search aria-hidden="true" />}
+                  <label className="sr-only" htmlFor="site-search-input">搜索文章和页面</label>
+                  <input
+                    ref={inputRef}
+                    id="site-search-input"
+                    type="search"
+                    value={query}
+                    placeholder="搜索文章、相册、页面或拼音…"
+                    autoComplete="off"
+                    onChange={(event) => setQuery(event.target.value)}
+                  />
+                  <button type="button" aria-label="关闭搜索" onClick={() => close()}><X aria-hidden="true" /></button>
+                </header>
 
-            <div className="site-search-results" role="listbox" aria-label="搜索结果">
-              {results.length ? results.map((result, index) => (
-                <Link
-                  className={index === activeIndex ? "is-active" : ""}
-                  href={result.href}
-                  role="option"
-                  aria-selected={index === activeIndex}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => close(false)}
-                  key={`${result.type}:${result.href}`}
-                >
-                  <span className="site-search-result-icon">
-                    {result.type === "article" ? <FileText aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
-                  </span>
-                  <span>
-                    <strong>{result.title}</strong>
-                    <small>{result.description}</small>
-                  </span>
-                  <em>{result.meta}</em>
-                </Link>
-              )) : (
-                <div className="site-search-empty" role="status">
-                  <Search aria-hidden="true" />
-                  <p>{loading ? "正在搜索…" : query ? "没有找到匹配内容" : "暂时没有可搜索的内容"}</p>
+                <div className="site-search-results" role="listbox" aria-label="搜索结果">
+                  {results.length ? results.map((result, index) => (
+                    <Link
+                      className={index === activeIndex ? "is-active" : ""}
+                      href={result.href}
+                      role="option"
+                      aria-selected={index === activeIndex}
+                      onMouseEnter={() => setActiveIndex(index)}
+                      onClick={() => close(false)}
+                      key={`${result.type}:${result.href}`}
+                    >
+                      <span className="site-search-result-icon">
+                        {result.type === "article" ? <FileText aria-hidden="true" /> : <ArrowRight aria-hidden="true" />}
+                      </span>
+                      <span>
+                        <strong>{result.title}</strong>
+                        <small>{result.description}</small>
+                      </span>
+                      <em>{result.meta}</em>
+                    </Link>
+                  )) : (
+                    <div className="site-search-empty" role="status">
+                      <Search aria-hidden="true" />
+                      <p>{loading ? "正在搜索…" : query ? "没有找到匹配内容" : "暂时没有可搜索的内容"}</p>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <footer className="site-search-help">
-              <span><kbd>↑</kbd><kbd>↓</kbd>选择</span>
-              <span><kbd>Enter</kbd>打开</span>
-              <span><kbd>Esc</kbd>关闭</span>
-            </footer>
-          </div>
-        </div>
+                <footer className="site-search-help">
+                  <span><kbd>↑</kbd><kbd>↓</kbd>选择</span>
+                  <span><kbd>Enter</kbd>打开</span>
+                  <span><kbd>Esc</kbd>关闭</span>
+                </footer>
+              </motion.div>
+            </div>
+          ) : null}
+        </AnimatePresence>,
+        document.body,
       ) : null}
     </>
   )
