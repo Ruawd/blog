@@ -240,6 +240,19 @@ test("animates post view totals as whole numbers with the Magic UI ticker", asyn
   assert.match(ticker, />\{formatValue\(0\)\}<\/span>/)
 })
 
+test("keeps animated border beams from becoming mobile scroll anchors", async () => {
+  const [source, styles] = await Promise.all([
+    readFile(join(projectRoot, "components", "ui", "border-beam.tsx"), "utf8"),
+    readFile(join(projectRoot, "app", "globals.css"), "utf8"),
+  ])
+  assert.match(source, /border-beam-motion/)
+  assert.match(source, /border-beam-mobile-rotor/)
+  assert.match(source, /--border-beam-angle/)
+  assert.match(styles, /\.border-beam-motion[\s\S]*overflow-anchor: none/)
+  assert.match(styles, /@media \(hover: none\) and \(pointer: coarse\), \(max-width: 767px\)/)
+  assert.match(styles, /\.border-beam-path \{ display: none; \}/)
+})
+
 test("protects the management backend and supports draft-to-publish workflow", async () => {
   const [adminResponse, apiResponse, bangumiApiResponse, albumApiResponse, friendsApiResponse, backupsApiResponse] = await Promise.all([
     request("/admin"),

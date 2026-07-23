@@ -3022,6 +3022,24 @@ a {
 }
 
 /* Magic UI surfaces and community/content management */
+.border-beam-motion {
+  overflow: hidden;
+  overflow: clip;
+  overflow-anchor: none;
+  contain: paint;
+  isolation: isolate;
+}
+
+.border-beam-mobile-rotor { display: none; }
+
+@media (hover: none) and (pointer: coarse), (max-width: 767px) {
+  .border-beam-path { display: none; }
+
+  .border-beam-mobile-rotor {
+    display: block;
+  }
+}
+
 .magic-surface {
   position: relative;
   overflow: hidden;
