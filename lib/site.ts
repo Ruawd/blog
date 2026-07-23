@@ -2,8 +2,8 @@ export const siteConfig = {
   name: "Ruawd",
   initials: "R",
   title: "个人主页",
-  description: "Ruawd 的个人主页，收录文章、项目、相册、番组与数字生活。",
-  tagline: "把文章、项目、影像、兴趣和数字生活认真留在自己的页面里。",
+  description: "Ruawd 的个人主页，收录文章、相册、番组、友链与数字生活。",
+  tagline: "把文章、影像、兴趣和数字生活认真留在自己的页面里。",
   email: "admin@ruawd.de",
   url: "https://blog.ruawd.de",
   friendBacklinkTargets: ["https://p8.nz", "https://blog.ruawd.de"],
@@ -20,11 +20,8 @@ export const navItems = [
 ] as const
 
 export const mineItems = [
-  { label: "此刻", href: "/now", description: "最近在做与刚刚更新的内容" },
-  { label: "项目", href: "/projects", description: "正在维护的数字作品" },
   { label: "相册", href: "/mine/album", description: "日常与远方的切片" },
   { label: "番组计划", href: "/mine/bangumi", description: "正在看与想看的动画" },
-  { label: "使用清单", href: "/uses", description: "工具、服务与技术栈" },
 ] as const
 
 export const aboutItems = [

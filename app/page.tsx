@@ -18,7 +18,6 @@ import { listCachedAlbumCollectionSummaries } from "@/lib/album-repository"
 import { listPublishedBlogPosts } from "@/lib/blog-repository"
 import { getPageContent } from "@/lib/page-content"
 import { listPostViewCounts } from "@/lib/post-view-repository"
-import { listPublishedProjects } from "@/lib/project-repository"
 
 export const dynamic = "force-dynamic"
 
@@ -29,11 +28,10 @@ const heroActions = [
 ] as const
 
 export default async function Home() {
-  const [page, posts, albums, projects] = await Promise.all([
+  const [page, posts, albums] = await Promise.all([
     getPageContent("home"),
     listPublishedBlogPosts(),
     listCachedAlbumCollectionSummaries(),
-    listPublishedProjects(),
   ])
   const viewCounts = listPostViewCounts(posts.map((post) => post.slug))
   const latestAlbum = [...albums].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] || null
@@ -95,7 +93,6 @@ export default async function Home() {
           totalViews={Object.values(viewCounts).reduce((total, count) => total + count, 0)}
           albumCount={albums.length}
           photoCount={photoCount}
-          projectCount={projects.length}
           latestPost={posts[0] || null}
           latestAlbum={latestAlbum}
         />

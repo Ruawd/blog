@@ -95,31 +95,6 @@ export const albumPhotos = sqliteTable(
   ],
 )
 
-export const projects = sqliteTable(
-  "projects",
-  {
-    id: integer("id").primaryKey({ autoIncrement: true }),
-    slug: text("slug").notNull(),
-    title: text("title").notNull(),
-    description: text("description").notNull().default(""),
-    url: text("url").notNull(),
-    repoUrl: text("repo_url").notNull().default(""),
-    imageUrl: text("image_url").notNull().default(""),
-    tagsJson: text("tags_json").notNull().default("[]"),
-    status: text("status", { enum: ["draft", "published", "archived"] }).notNull().default("draft"),
-    featured: integer("featured").notNull().default(0),
-    sortOrder: integer("sort_order").notNull(),
-    updatedBy: text("updated_by").notNull(),
-    createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-    updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
-  },
-  (table) => [
-    uniqueIndex("projects_slug_unique").on(table.slug),
-    uniqueIndex("projects_sort_order_unique").on(table.sortOrder),
-    index("projects_status_order_idx").on(table.status, table.sortOrder),
-  ],
-)
-
 export const friendLinks = sqliteTable(
   "friend_links",
   {

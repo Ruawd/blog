@@ -1,7 +1,6 @@
 import { listPublishedBlogPosts } from "@/lib/blog-repository"
 import { listCachedAlbumCollectionSummaries } from "@/lib/album-repository"
 import { pageContentDefaults, getPageContent, type PageContentKey } from "@/lib/page-content"
-import { listPublishedProjects } from "@/lib/project-repository"
 import { aliasesMatch, createSearchAliases, searchTokens } from "@/lib/site-search"
 
 export const dynamic = "force-dynamic"
@@ -11,11 +10,10 @@ const pageKeys = Object.keys(pageContentDefaults) as PageContentKey[]
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams.get("q")?.trim().slice(0, 80) || ""
   const tokens = searchTokens(query)
-  const [posts, pages, albums, projects] = await Promise.all([
+  const [posts, pages, albums] = await Promise.all([
     listPublishedBlogPosts(),
     Promise.all(pageKeys.map(getPageContent)),
     listCachedAlbumCollectionSummaries(),
-    listPublishedProjects(),
   ])
 
   const articleResults = posts
@@ -68,24 +66,8 @@ export async function GET(request: Request) {
       href: `/mine/album/${album.slug}`,
     }))
 
-  const projectResults = projects
-    .filter((project) => !tokens.length || aliasesMatch(createSearchAliases([
-      project.title,
-      project.description,
-      project.tags.join(" "),
-      project.slug,
-    ]), tokens))
-    .slice(0, tokens.length ? 4 : 2)
-    .map((project) => ({
-      type: "page" as const,
-      title: project.title,
-      description: project.description,
-      meta: "项目",
-      href: "/projects",
-    }))
-
   return Response.json(
-    { query, results: [...articleResults, ...projectResults, ...albumResults, ...pageResults] },
+    { query, results: [...articleResults, ...albumResults, ...pageResults] },
     { headers: { "Cache-Control": query ? "private, no-store" : "public, max-age=60, stale-while-revalidate=300" } },
   )
 }

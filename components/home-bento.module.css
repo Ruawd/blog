@@ -176,8 +176,7 @@
   color: color-mix(in srgb, var(--background) 66%, transparent);
 }
 
-.kicker,
-.statusLine {
+.kicker {
   margin: 0;
   color: var(--muted-foreground);
   font-family: var(--font-geist-mono), monospace;
@@ -188,22 +187,6 @@
 
 .introCard .kicker {
   color: color-mix(in srgb, var(--background) 62%, transparent);
-}
-
-.statusLine {
-  display: inline-flex;
-  align-items: center;
-  gap: 9px;
-  color: var(--foreground);
-}
-
-.statusLine i {
-  width: 7px;
-  height: 7px;
-  flex: 0 0 auto;
-  border-radius: 50%;
-  background: #22c55e;
-  box-shadow: 0 0 0 5px color-mix(in srgb, #22c55e 14%, transparent);
 }
 
 .action {

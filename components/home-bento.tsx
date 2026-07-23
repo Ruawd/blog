@@ -7,9 +7,10 @@ import {
   CircleUserRound,
   Clapperboard,
   Eye,
-  FolderKanban,
+  Link2,
   Layers3,
-  Wrench,
+  MessageCircle,
+  UsersRound,
 } from "lucide-react"
 
 import { ResilientImage } from "@/components/resilient-image"
@@ -44,7 +45,6 @@ type HomeBentoProps = {
   totalViews: number
   albumCount: number
   photoCount: number
-  projectCount: number
   latestPost: LatestPost | null
   latestAlbum: LatestAlbum | null
 }
@@ -56,7 +56,6 @@ export function HomeBento({
   totalViews,
   albumCount,
   photoCount,
-  projectCount,
   latestPost,
   latestAlbum,
 }: HomeBentoProps) {
@@ -67,7 +66,7 @@ export function HomeBento({
           <p>PERSONAL HUB</p>
           <h2 id="home-bento-title">我的数字生活</h2>
         </div>
-        <p>从最近在做的事，到写下的文章、留下的照片和持续维护的项目。</p>
+        <p>从写下的文章，到留下的照片、番组记录和互联网上遇见的朋友。</p>
       </header>
 
       <BentoGrid className={styles.grid}>
@@ -80,7 +79,7 @@ export function HomeBento({
                 <div className={styles.cardCopy}>
                   <p className={styles.kicker}>ABOUT / RUAWD</p>
                   <h3>这里不只是一间博客。</h3>
-                  <p>文章、影像、番组、项目与自托管服务，都在这里慢慢组成属于自己的页面。</p>
+                  <p>文章、影像、番组、友链与留言，都在这里慢慢组成属于自己的页面。</p>
                 </div>
                 <span className={styles.action}>认识我<ArrowUpRight aria-hidden="true" /></span>
               </Link>
@@ -89,16 +88,17 @@ export function HomeBento({
           </BentoGridItem>
         </BlurFade>
 
-        <BlurFade className={cn(styles.item, styles.nowItem)} delay={fadeDelay(1)} inView>
+        <BlurFade className={styles.item} delay={fadeDelay(1)} inView>
           <BentoGridItem className={styles.itemInner}>
             <MagicCard className={styles.magicCard}>
-              <Link className={styles.cardLink} href="/now">
-                <span className={styles.statusLine}><i aria-hidden="true" />NOW / 此刻</span>
+              <Link className={styles.cardLink} href="/message">
+                <span className={styles.iconBox}><MessageCircle aria-hidden="true" /></span>
                 <div className={styles.cardCopy}>
-                  <h3>正在完善个人页</h3>
-                  <p>整理内容结构、交互体验和自托管服务入口。</p>
+                  <p className={styles.kicker}>GUESTBOOK / MESSAGE</p>
+                  <h3>留下一句话</h3>
+                  <p>分享想法、建议，或者只是在这里留下来访足迹。</p>
                 </div>
-                <span className={styles.action}>查看近况<ArrowUpRight aria-hidden="true" /></span>
+                <span className={styles.action}>打开留言板<ArrowUpRight aria-hidden="true" /></span>
               </Link>
             </MagicCard>
           </BentoGridItem>
@@ -152,33 +152,33 @@ export function HomeBento({
           </BentoGridItem>
         </BlurFade>
 
-        <BlurFade className={cn(styles.item, styles.projectItem)} delay={fadeDelay(5)} inView>
+        <BlurFade className={styles.item} delay={fadeDelay(5)} inView>
           <BentoGridItem className={styles.itemInner}>
             <MagicCard className={styles.magicCard}>
-              <Link className={styles.cardLink} href="/projects">
-                <span className={styles.iconBox}><FolderKanban aria-hidden="true" /></span>
+              <Link className={styles.cardLink} href="/friends">
+                <span className={styles.iconBox}><UsersRound aria-hidden="true" /></span>
                 <div className={styles.cardCopy}>
-                  <p className={styles.kicker}>PROJECTS / {projectCount}</p>
-                  <h3>正在维护的项目</h3>
-                  <p>个人页、图床、统一认证与其他自托管服务。</p>
+                  <p className={styles.kicker}>FRIENDS / NEIGHBORS</p>
+                  <h3>互联网上的邻居</h3>
+                  <p>记录值得常去的网站，以及在网络上遇见的朋友。</p>
                 </div>
-                <span className={styles.action}>查看项目<ArrowUpRight aria-hidden="true" /></span>
+                <span className={styles.action}>查看友链<ArrowUpRight aria-hidden="true" /></span>
               </Link>
             </MagicCard>
           </BentoGridItem>
         </BlurFade>
 
-        <BlurFade className={cn(styles.item, styles.usesItem)} delay={fadeDelay(6)} inView>
+        <BlurFade className={styles.item} delay={fadeDelay(6)} inView>
           <BentoGridItem className={styles.itemInner}>
             <MagicCard className={styles.magicCard}>
-              <Link className={styles.cardLink} href="/uses">
-                <span className={styles.iconBox}><Wrench aria-hidden="true" /></span>
+              <Link className={styles.cardLink} href="/links">
+                <span className={styles.iconBox}><Link2 aria-hidden="true" /></span>
                 <div className={styles.cardCopy}>
-                  <p className={styles.kicker}>USES / STACK</p>
-                  <h3>工具与技术栈</h3>
-                  <p>构建这个个人空间时正在使用的技术与服务。</p>
+                  <p className={styles.kicker}>LINKS / SERVICES</p>
+                  <h3>常用链接</h3>
+                  <p>图床、统一认证、社交主页与常用服务入口。</p>
                 </div>
-                <span className={styles.action}>查看清单<ArrowUpRight aria-hidden="true" /></span>
+                <span className={styles.action}>查看链接<ArrowUpRight aria-hidden="true" /></span>
               </Link>
             </MagicCard>
           </BentoGridItem>
@@ -203,8 +203,8 @@ export function HomeBento({
         <BlurFade className={cn(styles.item, styles.overviewItem)} delay={fadeDelay(8)} inView>
           <BentoGridItem className={cn(styles.itemInner, styles.overviewCard)}>
             <div><Layers3 aria-hidden="true" /><span>内容总览</span></div>
-            <strong><NumberTicker value={postCount + photoCount + projectCount} /></strong>
-            <p>篇文章、张图片与个项目共同组成这个个人空间。</p>
+            <strong><NumberTicker value={postCount + photoCount} /></strong>
+            <p>篇文章与张图片共同组成这个个人空间。</p>
             <Link href="/blog">全部内容<Eye aria-hidden="true" /></Link>
           </BentoGridItem>
         </BlurFade>
