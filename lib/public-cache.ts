@@ -5,6 +5,7 @@ export const publicCacheTags = {
   blog: "public-blog",
   friends: "public-friends",
   pages: "public-pages",
+  projects: "public-projects",
 } as const
 
 export type PublicCacheTag = (typeof publicCacheTags)[keyof typeof publicCacheTags]

@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Ruawd 个人主页",
     short_name: "Ruawd",
-    description: "文章、相册、番组、友链与数字生活。",
+    description: "文章、项目、相册、番组与数字生活。",
     start_url: "/",
     display: "standalone",
     background_color: "#f7f7f7",

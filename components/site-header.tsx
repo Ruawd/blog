@@ -2,6 +2,7 @@
 
 import Image from "next/image"
 import Link from "next/link"
+import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 import { ChevronDown, Menu, X } from "lucide-react"
 
@@ -14,6 +15,7 @@ type SiteHeaderProps = {
 }
 
 export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
+  const pathname = usePathname()
   const [openDesktopMenu, setOpenDesktopMenu] = useState<"mine" | "about" | null>(null)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const desktopNavRef = useRef<HTMLElement>(null)
@@ -22,6 +24,9 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
   const menuTriggerRef = useRef<HTMLButtonElement>(null)
   const menuPanelRef = useRef<HTMLDivElement>(null)
   const closeButtonRef = useRef<HTMLButtonElement>(null)
+  const isActive = (href: string) => href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`)
+  const mineActive = mineItems.some((item) => isActive(item.href))
+  const aboutActive = aboutItems.some((item) => isActive(item.href))
 
   const closeMenu = (restoreFocus = true) => {
     setIsMenuOpen(false)
@@ -120,7 +125,12 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
 
       <nav ref={desktopNavRef} className="desktop-nav" aria-label="主导航">
         {navItems.map((item) => (
-          <Link href={item.href} key={item.href}>
+          <Link
+            className={isActive(item.href) ? "active" : undefined}
+            href={item.href}
+            aria-current={isActive(item.href) ? "page" : undefined}
+            key={item.href}
+          >
             {item.label}
           </Link>
         ))}
@@ -128,6 +138,7 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
         <div className="nav-dropdown" data-open={openDesktopMenu === "mine"}>
           <button
             ref={mineMenuButtonRef}
+            className={mineActive ? "active" : undefined}
             type="button"
             aria-expanded={openDesktopMenu === "mine"}
             aria-controls="mine-dropdown"
@@ -142,8 +153,10 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
           >
             {mineItems.map((item) => (
               <Link
+                className={isActive(item.href) ? "active" : undefined}
                 href={item.href}
                 key={item.href}
+                aria-current={isActive(item.href) ? "page" : undefined}
                 tabIndex={openDesktopMenu === "mine" ? 0 : -1}
                 onClick={() => setOpenDesktopMenu(null)}
               >
@@ -157,6 +170,7 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
         <div className="nav-dropdown" data-open={openDesktopMenu === "about"}>
           <button
             ref={aboutMenuButtonRef}
+            className={aboutActive ? "active" : undefined}
             type="button"
             aria-expanded={openDesktopMenu === "about"}
             aria-controls="about-dropdown"
@@ -171,8 +185,10 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
           >
             {aboutItems.map((item) => (
               <Link
+                className={isActive(item.href) ? "active" : undefined}
                 href={item.href}
                 key={item.href}
+                aria-current={isActive(item.href) ? "page" : undefined}
                 tabIndex={openDesktopMenu === "about" ? 0 : -1}
                 onClick={() => setOpenDesktopMenu(null)}
               >
@@ -183,7 +199,7 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
           </div>
         </div>
 
-        <Link href="/links">链接</Link>
+        <Link className={isActive("/links") ? "active" : undefined} href="/links" aria-current={isActive("/links") ? "page" : undefined}>链接</Link>
       </nav>
 
       <div className="header-tools">
@@ -243,8 +259,10 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
           <nav id="mobile-navigation" className="mobile-panel-links">
             {[...navItems, { label: "链接", href: "/links" }].map((item) => (
               <Link
+                className={isActive(item.href) ? "active" : undefined}
                 href={item.href}
                 key={item.href}
+                aria-current={isActive(item.href) ? "page" : undefined}
                 tabIndex={isMenuOpen ? 0 : -1}
                 onClick={() => closeMenu(false)}
               >
@@ -254,8 +272,10 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
             <p>我的</p>
             {mineItems.map((item) => (
               <Link
+                className={isActive(item.href) ? "active" : undefined}
                 href={item.href}
                 key={item.href}
+                aria-current={isActive(item.href) ? "page" : undefined}
                 tabIndex={isMenuOpen ? 0 : -1}
                 onClick={() => closeMenu(false)}
               >
@@ -265,8 +285,10 @@ export function SiteHeader({ showBrand = true }: SiteHeaderProps) {
             <p>关于</p>
             {aboutItems.map((item) => (
               <Link
+                className={isActive(item.href) ? "active" : undefined}
                 href={item.href}
                 key={item.href}
+                aria-current={isActive(item.href) ? "page" : undefined}
                 tabIndex={isMenuOpen ? 0 : -1}
                 onClick={() => closeMenu(false)}
               >

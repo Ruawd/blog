@@ -1,0 +1,458 @@
+.section {
+  width: min(calc(100% - 48px), 1320px);
+  margin-inline: auto;
+  padding: clamp(88px, 10vw, 144px) 0;
+  border-top: 1px solid var(--border);
+}
+
+.heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 32px;
+  margin-bottom: clamp(38px, 5vw, 64px);
+}
+
+.heading > div {
+  display: grid;
+  gap: 12px;
+}
+
+.heading p {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.heading > div > p {
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 10px;
+  letter-spacing: .16em;
+}
+
+.heading > p {
+  max-width: 440px;
+  text-align: right;
+}
+
+.heading h2 {
+  margin: 0;
+  font-size: clamp(2.8rem, 6vw, 5.8rem);
+  font-weight: 650;
+  line-height: .92;
+  letter-spacing: -.06em;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-flow: dense;
+  grid-auto-rows: minmax(210px, auto);
+  gap: 14px;
+}
+
+.item,
+.itemInner,
+.magicCard {
+  min-width: 0;
+  height: 100%;
+}
+
+.itemInner {
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  isolation: isolate;
+}
+
+.magicCard {
+  background: var(--surface);
+}
+
+.introItem {
+  grid-column: span 2;
+  grid-row: span 2;
+  min-height: 434px;
+}
+
+.articleItem,
+.albumItem,
+.bangumiItem,
+.overviewItem {
+  grid-column: span 2;
+}
+
+.cardLink {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  min-width: 0;
+  height: 100%;
+  min-height: 210px;
+  align-content: space-between;
+  gap: 26px;
+  padding: 26px;
+  color: var(--foreground);
+}
+
+.introCard {
+  background: var(--foreground);
+  color: var(--background);
+}
+
+.introCard::before {
+  background: radial-gradient(320px circle at var(--magic-x, 50%) var(--magic-y, 50%), color-mix(in srgb, var(--background) 24%, transparent), transparent 72%);
+}
+
+.introCard .cardLink {
+  min-height: 434px;
+  padding: clamp(28px, 4vw, 46px);
+  color: var(--background);
+}
+
+.dotPattern {
+  position: absolute !important;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  color: var(--background);
+  opacity: .12;
+  pointer-events: none;
+}
+
+.iconBox,
+.albumFallback {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  place-items: center;
+  border: 1px solid currentColor;
+  color: inherit;
+  opacity: .76;
+}
+
+.iconBox svg,
+.albumFallback svg {
+  width: 19px;
+  height: 19px;
+  stroke-width: 1.55;
+}
+
+.cardCopy {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  align-content: end;
+  gap: 10px;
+  min-width: 0;
+}
+
+.cardCopy h3 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: clamp(1.35rem, 2.3vw, 2.2rem);
+  font-weight: 630;
+  line-height: 1.08;
+  letter-spacing: -.04em;
+}
+
+.introCard .cardCopy h3 {
+  max-width: 10ch;
+  font-size: clamp(2.3rem, 5vw, 4.9rem);
+  line-height: .98;
+  letter-spacing: -.06em;
+}
+
+.cardCopy > p:not(.kicker) {
+  max-width: 48ch;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.introCard .cardCopy > p:not(.kicker) {
+  color: color-mix(in srgb, var(--background) 66%, transparent);
+}
+
+.kicker,
+.statusLine {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 9px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.introCard .kicker {
+  color: color-mix(in srgb, var(--background) 62%, transparent);
+}
+
+.statusLine {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--foreground);
+}
+
+.statusLine i {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #22c55e;
+  box-shadow: 0 0 0 5px color-mix(in srgb, #22c55e 14%, transparent);
+}
+
+.action {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  width: fit-content;
+  min-height: 34px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 680;
+}
+
+.action svg {
+  width: 15px;
+  height: 15px;
+  transition: transform 180ms ease-out;
+}
+
+.statsCard,
+.overviewCard {
+  display: grid;
+  min-height: 210px;
+  align-content: space-between;
+  gap: 22px;
+  padding: 26px;
+}
+
+.statsCard > header,
+.overviewCard > div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--muted-foreground);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 9px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.statsCard > header svg,
+.overviewCard > div svg {
+  width: 16px;
+  height: 16px;
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 0;
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+
+.statsGrid > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-right: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+
+.statsGrid dt {
+  color: var(--muted-foreground);
+  font-size: 9px;
+}
+
+.statsGrid dd {
+  min-width: 3ch;
+  margin: 0;
+  font-size: clamp(1.35rem, 2.7vw, 2.2rem);
+  font-weight: 650;
+  line-height: 1;
+  letter-spacing: -.045em;
+  font-variant-numeric: tabular-nums;
+}
+
+.albumPreview {
+  display: grid;
+  min-height: 114px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--surface-soft);
+}
+
+.albumPreview img {
+  display: block;
+  width: 100%;
+  height: 116px;
+  object-fit: contain;
+}
+
+.mediaCard .cardLink {
+  grid-template-columns: minmax(128px, .72fr) minmax(0, 1.28fr);
+  grid-template-areas:
+    "media copy"
+    "media action";
+  align-items: stretch;
+}
+
+.mediaCard .albumPreview,
+.mediaCard .albumFallback {
+  grid-area: media;
+  width: 100%;
+  height: 100%;
+  min-height: 154px;
+}
+
+.mediaCard .albumPreview img {
+  height: 100%;
+  min-height: 154px;
+}
+
+.mediaCard .cardCopy { grid-area: copy; }
+.mediaCard .action { grid-area: action; align-self: end; }
+
+.overviewCard strong {
+  font-size: clamp(3.2rem, 7vw, 6.5rem);
+  font-weight: 680;
+  line-height: .8;
+  letter-spacing: -.075em;
+  font-variant-numeric: tabular-nums;
+}
+
+.overviewCard p {
+  max-width: 38ch;
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.overviewCard > a {
+  display: inline-flex;
+  width: fit-content;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  font-weight: 680;
+}
+
+.overviewCard > a svg {
+  width: 15px;
+  height: 15px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .itemInner {
+    transition: transform 220ms ease-out, border-color 220ms ease-out, box-shadow 220ms ease-out;
+  }
+
+  .item:hover .itemInner,
+  .item:focus-within .itemInner {
+    transform: translateY(-4px);
+    border-color: color-mix(in srgb, var(--foreground) 48%, transparent);
+    box-shadow: 0 22px 58px color-mix(in srgb, var(--foreground) 8%, transparent);
+  }
+
+  .cardLink:hover .action svg,
+  .cardLink:focus-visible .action svg {
+    transform: translate(2px, -2px);
+  }
+}
+
+@media (max-width: 960px) {
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .introItem,
+  .articleItem,
+  .albumItem,
+  .bangumiItem,
+  .overviewItem {
+    grid-column: span 2;
+  }
+}
+
+@media (max-width: 640px) {
+  .section {
+    width: calc(100% - 40px);
+    padding-block: 82px;
+  }
+
+  .heading {
+    display: grid;
+    gap: 18px;
+  }
+
+  .heading > p {
+    max-width: 36ch;
+    text-align: left;
+  }
+
+  .grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-rows: auto;
+  }
+
+  .introItem,
+  .articleItem,
+  .albumItem,
+  .bangumiItem,
+  .overviewItem {
+    grid-column: auto;
+  }
+
+  .introItem,
+  .introCard .cardLink {
+    min-height: 350px;
+  }
+
+  .cardLink,
+  .statsCard,
+  .overviewCard {
+    min-height: 205px;
+    padding: 22px;
+  }
+
+  .introCard .cardLink {
+    padding: 28px 24px;
+  }
+
+  .mediaCard .cardLink {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "media"
+      "copy"
+      "action";
+  }
+
+  .mediaCard .albumPreview,
+  .mediaCard .albumFallback,
+  .mediaCard .albumPreview img {
+    min-height: 160px;
+    max-height: 220px;
+  }
+
+  .introCard :global(.border-beam-motion) {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .itemInner,
+  .action svg {
+    transition: none;
+  }
+}

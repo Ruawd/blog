@@ -9,6 +9,7 @@ export function SiteFooter() {
       <span>© {new Date().getFullYear()} {siteConfig.name}</span>
       <div className="footer-links">
         <Link href="/blog">博客</Link>
+        <Link href="/projects">项目</Link>
         <Link href="/mine/album">相册</Link>
         <Link href="/friends">友链</Link>
         <a href={`mailto:${siteConfig.email}`}>邮件</a>

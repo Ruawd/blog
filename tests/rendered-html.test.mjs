@@ -39,9 +39,29 @@ async function waitUntilReady(url) {
   throw new Error("The production server did not become ready in time")
 }
 
+async function runMigrations(databasePath) {
+  await new Promise((resolveMigration, rejectMigration) => {
+    const migration = spawn(process.execPath, [join(projectRoot, "scripts", "migrate.mjs")], {
+      cwd: projectRoot,
+      env: { ...process.env, DATABASE_PATH: databasePath },
+      stdio: ["ignore", "pipe", "pipe"],
+    })
+    let output = ""
+    migration.stdout.on("data", (chunk) => { output += chunk })
+    migration.stderr.on("data", (chunk) => { output += chunk })
+    migration.once("error", rejectMigration)
+    migration.once("exit", (code) => {
+      if (code === 0) resolveMigration()
+      else rejectMigration(new Error(`Database migration failed (${code}): ${output}`))
+    })
+  })
+}
+
 before(async () => {
   const port = await reservePort()
   temporaryDirectory = await mkdtemp(join(tmpdir(), "ruawd-blog-test-"))
+  const databasePath = join(temporaryDirectory, "blog.sqlite")
+  await runMigrations(databasePath)
   baseUrl = `http://127.0.0.1:${port}`
   server = spawn(process.execPath, [join(projectRoot, ".next", "standalone", "server.js")], {
     cwd: projectRoot,
@@ -50,7 +70,7 @@ before(async () => {
       NODE_ENV: "production",
       HOSTNAME: "127.0.0.1",
       PORT: String(port),
-      DATABASE_PATH: join(temporaryDirectory, "blog.sqlite"),
+      DATABASE_PATH: databasePath,
       SESSION_SECRET: sessionSecret,
       CASDOOR_ISSUER: "https://casdoor.example.com",
       CASDOOR_CLIENT_ID: "test-casdoor-client",
@@ -107,14 +127,17 @@ test("renders the site identity and real blog index", async () => {
   assert.match(home, /class="[^"]*\bhome-avatar-only\b[^"]*"/)
   assert.equal(home.match(/--pixel-delay:/g)?.length, 36)
   assert.match(home, /文章、相册、番组与数字生活，慢慢整理成自己的页面。/)
-  assert.match(home, /Ruawd 的个人主页，也是文章、影像与兴趣收藏的入口。/)
+  assert.match(home, /这里不只是一间博客。/)
   assert.match(home, /认识我/)
   assert.match(home, /浏览相册/)
   assert.match(home, /"@type":"ProfilePage"/)
   assert.match(home, /"@type":"Person"/)
   assert.match(home, /class="home-background home-particle-background"/)
   assert.match(home, /主页快捷入口/)
-  assert.match(home, /站内入口/)
+  assert.match(home, /我的数字生活/)
+  assert.match(home, /href="\/now"/)
+  assert.match(home, /href="\/projects"/)
+  assert.match(home, /href="\/uses"/)
   assert.doesNotMatch(home, /WELCOME TO MY PERSONAL SITE/)
   assert.doesNotMatch(home, /的个人站/)
   assert.match(blog, /AWS Lightsail JP \$5测试/)
@@ -138,8 +161,35 @@ test("renders the site identity and real blog index", async () => {
   assert.match(links, /href="https:\/\/casdoor\.ruawd\.de"/)
 })
 
+test("renders the personal hub pages and managed project showcase", async () => {
+  const [nowResponse, projectsResponse, usesResponse] = await Promise.all([
+    request("/now"),
+    request("/projects"),
+    request("/uses"),
+  ])
+  assert.equal(nowResponse.status, 200)
+  assert.equal(projectsResponse.status, 200)
+  assert.equal(usesResponse.status, 200)
+
+  const [now, projects, uses] = await Promise.all([
+    nowResponse.text(),
+    projectsResponse.text(),
+    usesResponse.text(),
+  ])
+  assert.match(now, /最近在做什么/)
+  assert.match(now, /CURRENT FOCUS/)
+  assert.match(now, /最近留下的内容/)
+  assert.match(projects, /项目与服务/)
+  assert.match(projects, /Ruawd 个人页/)
+  assert.match(projects, /SLS 图床/)
+  assert.match(projects, /Meow Auth/)
+  assert.match(uses, /这个页面如何运转/)
+  assert.match(uses, /Magic UI/)
+  assert.match(uses, /Meow Auth/)
+})
+
 test("serves search, feeds, manifests, and crawler metadata", async () => {
-  const [robotsResponse, sitemapResponse, feedResponse, manifestResponse, ogResponse, searchResponse, pinyinSearchResponse] = await Promise.all([
+  const [robotsResponse, sitemapResponse, feedResponse, manifestResponse, ogResponse, searchResponse, pinyinSearchResponse, projectSearchResponse] = await Promise.all([
     request("/robots.txt"),
     request("/sitemap.xml"),
     request("/feed.xml"),
@@ -147,8 +197,9 @@ test("serves search, feeds, manifests, and crawler metadata", async () => {
     request("/opengraph-image"),
     request("/api/search?q=lightsail"),
     request("/api/search?q=xiangce"),
+    request("/api/search?q=meow"),
   ])
-  for (const response of [robotsResponse, sitemapResponse, feedResponse, manifestResponse, ogResponse, searchResponse, pinyinSearchResponse]) {
+  for (const response of [robotsResponse, sitemapResponse, feedResponse, manifestResponse, ogResponse, searchResponse, pinyinSearchResponse, projectSearchResponse]) {
     assert.equal(response.status, 200)
   }
 
@@ -156,6 +207,9 @@ test("serves search, feeds, manifests, and crawler metadata", async () => {
   const sitemap = await sitemapResponse.text()
   assert.match(sitemap, /https:\/\/blog\.ruawd\.de\/blog\/memos-casdoor-oauth-login/)
   assert.match(sitemap, /https:\/\/blog\.ruawd\.de\/mine\/album\/firefly/)
+  assert.match(sitemap, /https:\/\/blog\.ruawd\.de\/now/)
+  assert.match(sitemap, /https:\/\/blog\.ruawd\.de\/projects/)
+  assert.match(sitemap, /https:\/\/blog\.ruawd\.de\/uses/)
   const feed = await feedResponse.text()
   assert.match(feed, /<rss version="2\.0"/)
   assert.match(feed, /xmlns:content="http:\/\/purl\.org\/rss\/1\.0\/modules\/content\/"/)
@@ -172,6 +226,8 @@ test("serves search, feeds, manifests, and crawler metadata", async () => {
   assert.ok(search.results.some((result) => result.href === "/blog/aws-lightsail-jp-5-review"))
   const pinyinSearch = await pinyinSearchResponse.json()
   assert.ok(pinyinSearch.results.some((result) => result.href === "/mine/album/firefly"))
+  const projectSearch = await projectSearchResponse.json()
+  assert.ok(projectSearch.results.some((result) => result.title === "Meow Auth" && result.href === "/projects"))
 })
 
 test("renders an article detail route with reading tools", async () => {
@@ -261,11 +317,12 @@ test("keeps animated border beams from becoming mobile scroll anchors", async ()
 })
 
 test("protects the management backend and supports draft-to-publish workflow", async () => {
-  const [adminResponse, apiResponse, bangumiApiResponse, albumApiResponse, friendsApiResponse, backupsApiResponse] = await Promise.all([
+  const [adminResponse, apiResponse, bangumiApiResponse, albumApiResponse, projectsApiResponse, friendsApiResponse, backupsApiResponse] = await Promise.all([
     request("/admin"),
     request("/api/admin/posts"),
     request("/api/admin/bangumi"),
     request("/api/admin/album"),
+    request("/api/admin/projects"),
     request("/api/admin/friends"),
     request("/api/admin/backups"),
   ])
@@ -274,6 +331,7 @@ test("protects the management backend and supports draft-to-publish workflow", a
   assert.equal(apiResponse.status, 401)
   assert.equal(bangumiApiResponse.status, 401)
   assert.equal(albumApiResponse.status, 401)
+  assert.equal(projectsApiResponse.status, 401)
   assert.equal(friendsApiResponse.status, 401)
   assert.equal(backupsApiResponse.status, 401)
 
@@ -299,10 +357,57 @@ test("protects the management backend and supports draft-to-publish workflow", a
   const adminHtml = await authenticatedAdmin.text()
   assert.match(adminHtml, /内容管理/)
   assert.match(adminHtml, /页面内容/)
+  assert.match(adminHtml, /项目/)
   assert.match(adminHtml, /相册/)
   assert.match(adminHtml, /友链/)
   assert.match(adminHtml, /番组 API/)
   assert.match(adminHtml, /留言与评论/)
+
+  const projectListResponse = await request("/api/admin/projects", { headers: { cookie } })
+  assert.equal(projectListResponse.status, 200)
+  const projectPayload = await projectListResponse.json()
+  const managedProjects = projectPayload.projects
+  assert.equal(managedProjects.length, 3)
+  assert.match(projectPayload.revision, /^[a-f0-9]{64}$/)
+  const editedProjects = [
+    { ...managedProjects[2], description: "项目后台更新与公开缓存测试。", featured: true },
+    { ...managedProjects[0], featured: false },
+    managedProjects[1],
+    {
+      slug: "draft-project",
+      title: "尚未公开的项目",
+      description: "用于验证草稿项目不会出现在访客页面。",
+      url: "https://draft.example.com/",
+      repoUrl: "",
+      imageUrl: "",
+      tags: ["Draft"],
+      status: "draft",
+      featured: false,
+    },
+  ]
+  const projectSaveResponse = await request("/api/admin/projects", {
+    method: "PUT",
+    headers: { cookie, origin: baseUrl, "content-type": "application/json" },
+    body: JSON.stringify({ projects: editedProjects, revision: projectPayload.revision }),
+  })
+  assert.equal(projectSaveResponse.status, 200)
+  const savedProjectPayload = await projectSaveResponse.json()
+  assert.equal(savedProjectPayload.projects.length, 4)
+  assert.notEqual(savedProjectPayload.revision, projectPayload.revision)
+
+  const staleProjectSaveResponse = await request("/api/admin/projects", {
+    method: "PUT",
+    headers: { cookie, origin: baseUrl, "content-type": "application/json" },
+    body: JSON.stringify({ projects: managedProjects, revision: projectPayload.revision }),
+  })
+  assert.equal(staleProjectSaveResponse.status, 409)
+
+  const publicProjectsHtml = await (await request("/projects")).text()
+  assert.match(publicProjectsHtml, /项目后台更新与公开缓存测试。/)
+  assert.doesNotMatch(publicProjectsHtml, /尚未公开的项目/)
+  assert.ok(publicProjectsHtml.indexOf("Meow Auth") < publicProjectsHtml.indexOf("Ruawd 个人页"))
+  const updatedProjectSearch = await (await request("/api/search?q=后台更新")).json()
+  assert.ok(updatedProjectSearch.results.some((result) => result.title === "Meow Auth"))
 
   const bangumiToken = "integration-test-bangumi-token"
   const bangumiSaveResponse = await request("/api/admin/bangumi", {

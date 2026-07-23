@@ -37,6 +37,8 @@ export type AlbumCollection = {
   photos: AlbumPhoto[]
 }
 
+export type AlbumCollectionSummary = Omit<AlbumCollection, "photos">
+
 export type AlbumCollectionInput = Pick<
   AlbumCollection,
   "slug" | "title" | "description" | "period" | "coverSrc"
@@ -303,6 +305,26 @@ export function listAlbumCollections(): AlbumCollection[] {
   })
 }
 
+export function listAlbumCollectionSummaries(): AlbumCollectionSummary[] {
+  const db = ensureAlbumSchema()
+  return db.prepare(`
+    SELECT
+      collections.id,
+      collections.slug,
+      collections.title,
+      collections.description,
+      collections.period,
+      collections.cover_src AS coverSrc,
+      collections.sort_order AS sortOrder,
+      COUNT(photos.id) AS photoCount,
+      collections.updated_at AS updatedAt
+    FROM album_collections AS collections
+    LEFT JOIN album_photos AS photos ON photos.album_slug = collections.slug
+    GROUP BY collections.id
+    ORDER BY collections.sort_order ASC, collections.id ASC
+  `).all() as unknown as AlbumCollectionSummary[]
+}
+
 export function getAlbumCollection(slug: string): AlbumCollection | null {
   return listAlbumCollections().find((album) => album.slug === slug) || null
 }
@@ -317,6 +339,12 @@ const listCachedAlbumCollectionsInternal = unstable_cache(
   { revalidate: 300, tags: [publicCacheTags.album] },
 )
 
+const listCachedAlbumCollectionSummariesInternal = unstable_cache(
+  async () => listAlbumCollectionSummaries(),
+  ["public-album-collection-summaries-v1"],
+  { revalidate: 300, tags: [publicCacheTags.album] },
+)
+
 const getCachedAlbumCollectionInternal = unstable_cache(
   async (slug: string) => getAlbumCollection(slug),
   ["public-album-collection-v2"],
@@ -325,6 +353,10 @@ const getCachedAlbumCollectionInternal = unstable_cache(
 
 export async function listCachedAlbumCollections(): Promise<AlbumCollection[]> {
   return listCachedAlbumCollectionsInternal()
+}
+
+export async function listCachedAlbumCollectionSummaries(): Promise<AlbumCollectionSummary[]> {
+  return listCachedAlbumCollectionSummariesInternal()
 }
 
 export async function getCachedAlbumCollection(slug: string): Promise<AlbumCollection | null> {

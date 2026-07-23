@@ -5,7 +5,7 @@ export function Marquee({ children, className = "" }: { children: ReactNode; cla
     <div className={`magic-marquee ${className}`.trim()}>
       <div className="magic-marquee-track">
         <div className="magic-marquee-group">{children}</div>
-        <div className="magic-marquee-group" aria-hidden="true">{children}</div>
+        <div className="magic-marquee-group" aria-hidden="true" inert>{children}</div>
       </div>
     </div>
   )

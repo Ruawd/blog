@@ -39,6 +39,12 @@
 .theme-toggle:hover { transform: rotate(8deg); border-color: var(--foreground); background: var(--surface); color: var(--foreground); }
 .theme-toggle svg { width: 17px; height: 17px; }
 
+.dropdown-panel a.active,
+.mobile-panel-links a.active {
+  background: var(--surface-soft);
+  color: var(--foreground);
+}
+
 .magic-dot-pattern {
   position: absolute;
   inset: 0;
@@ -69,7 +75,9 @@
 }
 .magic-card:hover::before,
 .magic-card:focus-within::before { opacity: 1; }
-.magic-card > * { position: relative; z-index: 1; }
+.magic-card > :not(.magic-dot-pattern):not(.border-beam-motion) { position: relative; z-index: 1; }
+.magic-card > .magic-dot-pattern { position: absolute; z-index: 0; }
+.magic-card > .border-beam-motion { position: absolute; z-index: 3; }
 .home-feature-magic.is-featured { grid-column: span 2; }
 .home-feature-magic .home-feature-card { width: 100%; height: 100%; }
 

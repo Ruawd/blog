@@ -12,6 +12,9 @@ export const pageContentDefaults = {
   links: { path: "/links", label: "链接", eyebrow: "LINKS / 个人链接", title: "在别处找到我", description: "我的个人主页、联系方式与常用站外入口。", body: "" },
   album: { path: "/mine/album", label: "相册", eyebrow: "MY / ALBUMS", title: "相册", description: "按主题整理影像、插画与值得留下的视觉片段。", body: "" },
   bangumi: { path: "/mine/bangumi", label: "番组计划", eyebrow: "MY / BANGUMI", title: "番组计划", description: "想看、在看与看过的动画、书籍、音乐和游戏记录。", body: "" },
+  now: { path: "/now", label: "此刻", eyebrow: "NOW / 此刻", title: "最近在做什么", description: "记录当前关注的事情、最近留下的内容，以及接下来准备继续完善的部分。", body: "" },
+  projects: { path: "/projects", label: "项目", eyebrow: "WORK / PROJECTS", title: "正在维护的项目", description: "个人页面、自托管服务与持续打磨中的数字作品。", body: "" },
+  uses: { path: "/uses", label: "使用清单", eyebrow: "USES / STACK", title: "工具、服务与技术栈", description: "这个个人空间正在使用的技术、服务与工作方式。", body: "" },
   support: { path: "/about/support", label: "打赏", eyebrow: "SUPPORT / 自愿支持", title: "支持这个小站", description: "你的赞助将用于服务器维护、内容创作和功能开发。", body: "" },
   about: { path: "/about/me", label: "关于我", eyebrow: "ABOUT / 关于我", title: "你好，我是 Ruawd", description: "Hello, I'm Ruawd. 欢迎来到我的个人主页。", body: "" },
 } as const

@@ -4,6 +4,7 @@ import { memo } from "react"
 import {
   AnimatePresence,
   motion,
+  useReducedMotion,
   Variants,
   type DOMMotionComponents,
   type MotionProps,
@@ -346,6 +347,7 @@ const TextAnimateBase = ({
   ...props
 }: TextAnimateProps) => {
   const MotionComponent = motionElements[Component]
+  const reduceMotion = useReducedMotion()
 
   let segments: string[] = []
   switch (by) {
@@ -362,6 +364,44 @@ const TextAnimateBase = ({
     default:
       segments = [children]
       break
+  }
+
+  if (reduceMotion) {
+    return (
+      <MotionComponent
+        {...props}
+        initial={false}
+        animate={undefined}
+        whileInView={undefined}
+        whileHover={undefined}
+        whileTap={undefined}
+        whileFocus={undefined}
+        whileDrag={undefined}
+        exit={undefined}
+        variants={undefined}
+        layout={false}
+        layoutId={undefined}
+        drag={false}
+        transition={{ duration: 0 }}
+        className={cn("whitespace-pre-wrap", className)}
+        aria-label={accessible ? children : undefined}
+      >
+        {accessible && <span className="sr-only">{children}</span>}
+        {segments.map((segment, i) => (
+          <span
+            key={`${by}-${segment}-${i}`}
+            className={cn(
+              by === "line" ? "block" : "inline-block whitespace-pre",
+              by === "character" && "",
+              segmentClassName
+            )}
+            aria-hidden={accessible ? true : undefined}
+          >
+            {segment}
+          </span>
+        ))}
+      </MotionComponent>
+    )
   }
 
   const finalVariants = variants

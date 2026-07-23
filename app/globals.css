@@ -5718,7 +5718,7 @@ a {
 }
 
 .home-avatar-note {
-  color: #5f5f5f;
+  color: var(--muted-foreground);
   font-size: 13px;
   letter-spacing: 0.04em;
 }
