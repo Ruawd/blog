@@ -252,8 +252,6 @@ a {
   appearance: none;
   background: rgba(17, 17, 17, 0.42);
   cursor: default;
-  backdrop-filter: blur(7px);
-  -webkit-backdrop-filter: blur(7px);
 }
 
 .site-search-dialog {
@@ -267,8 +265,17 @@ a {
   border: 1px solid var(--border);
   background: var(--surface);
   box-shadow: 0 34px 100px rgba(17, 17, 17, 0.24);
+  will-change: clip-path;
+}
+
+.site-search-reveal-line {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  border-bottom: 1px solid var(--foreground);
+  box-shadow: 0 8px 20px rgba(17, 17, 17, 0.14);
+  pointer-events: none;
   transform-origin: 50% 0;
-  will-change: transform, opacity, filter;
 }
 
 .site-search-box {

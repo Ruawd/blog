@@ -17,7 +17,8 @@ type SearchResult = {
 
 const subscribeToClient = () => () => undefined
 const SEARCH_BACKDROP_DURATION = 0.22
-const SEARCH_DIALOG_DURATION = 0.34
+const SEARCH_DIALOG_DURATION = 0.42
+const SEARCH_CONTENT_DURATION = 0.32
 
 export function SiteSearch() {
   const router = useRouter()
@@ -165,22 +166,13 @@ export function SiteSearch() {
                 aria-modal="true"
                 aria-label="全站搜索"
                 initial={shouldReduceMotion ? false : {
-                  opacity: 0,
-                  y: -18,
-                  scale: 0.975,
-                  filter: "blur(12px)",
+                  clipPath: "inset(0 0 100% 0)",
                 }}
                 animate={{
-                  opacity: 1,
-                  y: 0,
-                  scale: 1,
-                  filter: "blur(0px)",
+                  clipPath: "inset(0 0 0% 0)",
                 }}
-                exit={shouldReduceMotion ? { opacity: 0 } : {
-                  opacity: 0,
-                  y: -8,
-                  scale: 0.985,
-                  filter: "blur(8px)",
+                exit={{
+                  clipPath: "inset(0 0 100% 0)",
                 }}
                 transition={{
                   duration: shouldReduceMotion ? 0 : SEARCH_DIALOG_DURATION,
@@ -188,7 +180,16 @@ export function SiteSearch() {
                 }}
                 onKeyDown={handleDialogKeyDown}
               >
-                <header className="site-search-box">
+                <motion.header
+                  className="site-search-box"
+                  initial={shouldReduceMotion ? false : { y: -16 }}
+                  animate={{ y: 0 }}
+                  exit={{ y: -16 }}
+                  transition={{
+                    duration: shouldReduceMotion ? 0 : SEARCH_CONTENT_DURATION,
+                    ease: "linear",
+                  }}
+                >
                   {loading ? <LoaderCircle className="spin" aria-hidden="true" /> : <Search aria-hidden="true" />}
                   <label className="sr-only" htmlFor="site-search-input">搜索文章和页面</label>
                   <input
@@ -201,9 +202,20 @@ export function SiteSearch() {
                     onChange={(event) => setQuery(event.target.value)}
                   />
                   <button type="button" aria-label="关闭搜索" onClick={() => close()}><X aria-hidden="true" /></button>
-                </header>
+                </motion.header>
 
-                <div className="site-search-results" role="listbox" aria-label="搜索结果">
+                <motion.div
+                  className="site-search-results"
+                  role="listbox"
+                  aria-label="搜索结果"
+                  initial={shouldReduceMotion ? false : { y: 26 }}
+                  animate={{ y: 0 }}
+                  exit={{ y: 26 }}
+                  transition={{
+                    duration: shouldReduceMotion ? 0 : SEARCH_CONTENT_DURATION,
+                    ease: "linear",
+                  }}
+                >
                   {results.length ? results.map((result, index) => (
                     <Link
                       className={index === activeIndex ? "is-active" : ""}
@@ -229,13 +241,33 @@ export function SiteSearch() {
                       <p>{loading ? "正在搜索…" : query ? "没有找到匹配内容" : "暂时没有可搜索的内容"}</p>
                     </div>
                   )}
-                </div>
+                </motion.div>
 
-                <footer className="site-search-help">
+                <motion.footer
+                  className="site-search-help"
+                  initial={shouldReduceMotion ? false : { y: 14 }}
+                  animate={{ y: 0 }}
+                  exit={{ y: 14 }}
+                  transition={{
+                    duration: shouldReduceMotion ? 0 : SEARCH_CONTENT_DURATION,
+                    ease: "linear",
+                  }}
+                >
                   <span><kbd>↑</kbd><kbd>↓</kbd>选择</span>
                   <span><kbd>Enter</kbd>打开</span>
                   <span><kbd>Esc</kbd>关闭</span>
-                </footer>
+                </motion.footer>
+                <motion.span
+                  className="site-search-reveal-line"
+                  aria-hidden="true"
+                  initial={shouldReduceMotion ? false : { scaleY: 0 }}
+                  animate={{ scaleY: 1 }}
+                  exit={{ scaleY: 0 }}
+                  transition={{
+                    duration: shouldReduceMotion ? 0 : SEARCH_DIALOG_DURATION,
+                    ease: "linear",
+                  }}
+                />
               </motion.div>
             </div>
           ) : null}
