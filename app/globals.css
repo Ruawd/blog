@@ -5683,22 +5683,6 @@ a {
   overflow: hidden;
 }
 
-.home-avatar-name > span,
-.home-avatar-note > span {
-  display: block;
-  opacity: 0;
-  transform: translateY(8px);
-  will-change: transform, opacity;
-}
-
-.home-avatar-stage[data-ready="true"] .home-avatar-name > span {
-  animation: home-avatar-copy-reveal 260ms cubic-bezier(0.16, 1, 0.3, 1) 160ms both;
-}
-
-.home-avatar-stage[data-ready="true"] .home-avatar-note > span {
-  animation: home-avatar-copy-reveal 280ms cubic-bezier(0.16, 1, 0.3, 1) 220ms both;
-}
-
 .home-avatar-name {
   font-size: clamp(1.45rem, 2.3vw, 2rem);
   font-weight: 650;
@@ -5709,11 +5693,6 @@ a {
   color: #5f5f5f;
   font-size: 13px;
   letter-spacing: 0.04em;
-}
-
-@keyframes home-avatar-copy-reveal {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
 }
 
 .home-hero-actions {
@@ -5949,11 +5928,7 @@ a {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .magic-pixel-source,
-  .home-avatar-name > span,
-  .home-avatar-note > span {
-    animation: none !important;
-  }
+  .magic-pixel-source { animation: none !important; }
 
   .magic-pixel-source {
     opacity: 1;
@@ -5968,9 +5943,6 @@ a {
     opacity: 1;
     transform: none;
   }
-
-  .home-avatar-name > span,
-  .home-avatar-note > span { opacity: 1; transform: none; }
 
   .home-hero-action,
   .home-scroll-link,

@@ -896,13 +896,14 @@ test("supports threaded comments, likes, reactions, and article isolation", asyn
 })
 
 test("keeps the editor responsive, stable, and free of emoji controls", async () => {
-  const [publicStyles, enhancements, adminStyles, adminEnhancements, editor, albumEditor, consoleUi, session, codeBlock] = await Promise.all([
+  const [publicStyles, enhancements, adminStyles, adminEnhancements, editor, albumEditor, homeAvatar, consoleUi, session, codeBlock] = await Promise.all([
     readFile(join(projectRoot, "app", "globals.css"), "utf8"),
     readFile(join(projectRoot, "app", "enhancements.css"), "utf8"),
     readFile(join(projectRoot, "app", "admin", "admin-base.css"), "utf8"),
     readFile(join(projectRoot, "app", "admin", "admin-enhancements.css"), "utf8"),
     readFile(join(projectRoot, "components", "admin-editor.tsx"), "utf8"),
     readFile(join(projectRoot, "components", "admin-album-editor.tsx"), "utf8"),
+    readFile(join(projectRoot, "components", "home-avatar.tsx"), "utf8"),
     readFile(join(projectRoot, "components", "admin-console.tsx"), "utf8"),
     readFile(join(projectRoot, "lib", "admin-session.ts"), "utf8"),
     readFile(join(projectRoot, "components", "article-code-block.tsx"), "utf8"),
@@ -914,8 +915,10 @@ test("keeps the editor responsive, stable, and free of emoji controls", async ()
   assert.match(styles, /@media \(max-width: 1280px\)/)
   assert.match(styles, /width: clamp\(196px, 52vw, 260px\)/)
   assert.match(styles, /transform 240ms linear/)
-  assert.match(styles, /@keyframes home-avatar-copy-reveal/)
-  assert.doesNotMatch(styles, /home-avatar-copy-cut/)
+  assert.match(homeAvatar, /TextAnimate/)
+  assert.match(homeAvatar, /pixelRevealDurationMs = 3_100/)
+  assert.match(homeAvatar, /by="character"/)
+  assert.match(homeAvatar, /animation="blurInUp"/)
   assert.match(styles, /\.brand > span:last-child[\s\S]*display: inline/)
   assert.match(editor, /实时预览/)
   assert.match(editor, /保存草稿/)
