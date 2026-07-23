@@ -5686,16 +5686,17 @@ a {
 .home-avatar-name > span,
 .home-avatar-note > span {
   display: block;
-  transform: translateY(115%) skewY(5deg);
-  will-change: transform;
+  opacity: 0;
+  transform: translateY(8px);
+  will-change: transform, opacity;
 }
 
 .home-avatar-stage[data-ready="true"] .home-avatar-name > span {
-  animation: home-avatar-copy-cut 460ms cubic-bezier(0.16, 1, 0.3, 1) 2550ms both;
+  animation: home-avatar-copy-reveal 260ms cubic-bezier(0.16, 1, 0.3, 1) 160ms both;
 }
 
 .home-avatar-stage[data-ready="true"] .home-avatar-note > span {
-  animation: home-avatar-copy-cut 480ms cubic-bezier(0.16, 1, 0.3, 1) 2660ms both;
+  animation: home-avatar-copy-reveal 280ms cubic-bezier(0.16, 1, 0.3, 1) 220ms both;
 }
 
 .home-avatar-name {
@@ -5710,9 +5711,9 @@ a {
   letter-spacing: 0.04em;
 }
 
-@keyframes home-avatar-copy-cut {
-  from { transform: translateY(115%) skewY(5deg); }
-  to { transform: translateY(0) skewY(0); }
+@keyframes home-avatar-copy-reveal {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .home-hero-actions {
@@ -5969,7 +5970,7 @@ a {
   }
 
   .home-avatar-name > span,
-  .home-avatar-note > span { transform: none; }
+  .home-avatar-note > span { opacity: 1; transform: none; }
 
   .home-hero-action,
   .home-scroll-link,
