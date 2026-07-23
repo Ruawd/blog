@@ -220,6 +220,19 @@ test("tracks unique daily article views and exposes them on list and detail page
   assert.match(articleHtml, /data-view-slug="memos-casdoor-oauth-login" data-view-count="1"/)
 })
 
+test("animates post view totals as whole numbers with the Magic UI ticker", async () => {
+  const [source, ticker] = await Promise.all([
+    readFile(join(projectRoot, "components", "post-view-count.tsx"), "utf8"),
+    readFile(join(projectRoot, "components", "ui", "number-ticker.tsx"), "utf8"),
+  ])
+  assert.match(source, /NumberTicker/)
+  assert.match(source, /decimals=\{0\}/)
+  assert.match(source, /notation="standard"/)
+  assert.doesNotMatch(source, /notation="compact"/)
+  assert.match(ticker, /animate\(displayedValue\.current, value/)
+  assert.match(ticker, />\{formatValue\(0\)\}<\/span>/)
+})
+
 test("protects the management backend and supports draft-to-publish workflow", async () => {
   const [adminResponse, apiResponse, bangumiApiResponse, albumApiResponse, friendsApiResponse, backupsApiResponse] = await Promise.all([
     request("/admin"),

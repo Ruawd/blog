@@ -44,7 +44,7 @@ export function PostViewCount({
       aria-live={track ? "polite" : undefined}
     >
       <Eye aria-hidden="true" />
-      <NumberTicker className="post-view-number" value={count} decimals={1} notation="compact" />
+      <NumberTicker className="post-view-number" value={count} decimals={0} notation="standard" />
       <span className={showLabel ? "post-view-label" : "sr-only"}>次浏览</span>
     </span>
   )

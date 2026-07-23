@@ -17,6 +17,7 @@ export function NumberTicker({
   notation?: "standard" | "compact"
 }) {
   const ref = useRef<HTMLSpanElement>(null)
+  const displayedValue = useRef(0)
   const inView = useInView(ref, { once: true, margin: "80px" })
   const reduceMotion = useReducedMotion()
   const formatter = useMemo(() => notation ? new Intl.NumberFormat("zh-CN", {
@@ -32,19 +33,25 @@ export function NumberTicker({
     const element = ref.current
     if (!element || !inView) return
     if (reduceMotion) {
+      displayedValue.current = value
       element.textContent = formatValue(value)
       return
     }
-    const controls = animate(0, value, {
+    const controls = animate(displayedValue.current, value, {
       duration: 0.8,
       ease: [0.16, 1, 0.3, 1],
       onUpdate: (latest) => {
+        displayedValue.current = latest
         element.textContent = formatValue(latest)
+      },
+      onComplete: () => {
+        displayedValue.current = value
+        element.textContent = formatValue(value)
       },
     })
     return () => controls.stop()
   }, [formatValue, inView, reduceMotion, value])
 
   const formattedValue = formatValue(value)
-  return <span ref={ref} className={className} aria-label={formattedValue}>{formattedValue}</span>
+  return <span ref={ref} className={className} aria-label={formattedValue}>{formatValue(0)}</span>
 }
