@@ -16,6 +16,8 @@ type SearchResult = {
 }
 
 const subscribeToClient = () => () => undefined
+const SEARCH_BACKDROP_DURATION = 0.22
+const SEARCH_DIALOG_DURATION = 0.34
 
 export function SiteSearch() {
   const router = useRouter()
@@ -34,7 +36,7 @@ export function SiteSearch() {
     if (restoreFocus) {
       window.setTimeout(
         () => triggerRef.current?.focus(),
-        shouldReduceMotion ? 0 : 180,
+        shouldReduceMotion ? 0 : SEARCH_DIALOG_DURATION * 1000,
       )
     }
   }
@@ -152,8 +154,8 @@ export function SiteSearch() {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{
-                  duration: shouldReduceMotion ? 0 : 0.22,
-                  ease: [0.16, 1, 0.3, 1],
+                  duration: shouldReduceMotion ? 0 : SEARCH_BACKDROP_DURATION,
+                  ease: "linear",
                 }}
                 onClick={() => close()}
               />
@@ -181,8 +183,8 @@ export function SiteSearch() {
                   filter: "blur(8px)",
                 }}
                 transition={{
-                  duration: shouldReduceMotion ? 0 : 0.34,
-                  ease: [0.16, 1, 0.3, 1],
+                  duration: shouldReduceMotion ? 0 : SEARCH_DIALOG_DURATION,
+                  ease: "linear",
                 }}
                 onKeyDown={handleDialogKeyDown}
               >
